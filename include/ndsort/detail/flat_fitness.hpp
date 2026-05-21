@@ -1,0 +1,89 @@
+#pragma once
+
+#include <algorithm>
+#include <cstddef>
+#include <functional>
+#include <numeric>
+#include <ranges>
+#include <vector>
+
+#include "ndsort/concepts.hpp"
+
+namespace ndsort::detail {
+
+// Canonical internal representation: fitness values in structure-of-arrays layout.
+// data[obj * n + i] = fitness of individual i on objective obj.
+// All values are stored as double regardless of the source scalar type.
+struct flat_fitness {
+    std::vector<double> data;
+    std::size_t n{};
+    std::size_t m{};
+
+    [[nodiscard]] auto at(std::size_t obj, std::size_t individual) const noexcept -> double
+    {
+        return data[obj * n + individual];
+    }
+};
+
+// Build a flat_fitness from any population range and projection.
+// The input is traversed exactly once.
+template<typename P, typename Proj = std::identity>
+    requires population<P, Proj>
+auto flatten(P&& pop, Proj proj = {}) -> flat_fitness
+{
+    auto const n = std::ranges::size(pop);
+    auto const& first = std::invoke(proj, *std::ranges::begin(pop));
+    auto const m = std::ranges::size(first);
+
+    flat_fitness ff;
+    ff.n = n;
+    ff.m = m;
+    ff.data.resize(n * m);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        auto const& fitness = std::invoke(proj, pop[static_cast<std::ptrdiff_t>(i)]);
+        for (std::size_t j = 0; j < m; ++j) {
+            ff.data[j * n + i] = static_cast<double>(fitness[static_cast<std::ptrdiff_t>(j)]);
+        }
+    }
+    return ff;
+}
+
+// Returns a permutation such that individuals are in lexicographic fitness order.
+// perm[i] is the original index of the i-th individual in sorted order.
+inline auto lex_perm(flat_fitness const& ff) -> std::vector<std::size_t>
+{
+    auto const n = ff.n;
+    auto const m = ff.m;
+    std::vector<std::size_t> perm(n);
+    std::iota(perm.begin(), perm.end(), std::size_t{0});
+    std::stable_sort(perm.begin(), perm.end(), [&](std::size_t a, std::size_t b) {
+        for (std::size_t k = 0; k < m; ++k) {
+            auto const va = ff.at(k, a);
+            auto const vb = ff.at(k, b);
+            if (va < vb) { return true; }
+            if (va > vb) { return false; }
+        }
+        return false;
+    });
+    return perm;
+}
+
+// Build a reindexed flat_fitness: result.at(obj, i) == ff.at(obj, perm[i]).
+inline auto reindex(flat_fitness const& ff, std::vector<std::size_t> const& perm) -> flat_fitness
+{
+    auto const n = ff.n;
+    auto const m = ff.m;
+    flat_fitness result;
+    result.n = n;
+    result.m = m;
+    result.data.resize(n * m);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t k = 0; k < m; ++k) {
+            result.data[k * n + i] = ff.data[k * n + perm[i]];
+        }
+    }
+    return result;
+}
+
+} // namespace ndsort::detail
