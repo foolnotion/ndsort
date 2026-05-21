@@ -145,47 +145,94 @@ public:
 
 } // namespace
 
-auto merge_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
+auto merge_sorter::sort_impl(detail::flat_fitness const& ff_in, double /*eps*/) const -> fronts
 {
-    auto const n  = ff.n;
-    auto const m  = ff.m;
-    auto const ni = static_cast<int>(n);
+    std::size_t const n_in = ff_in.n;
+    std::size_t const m    = ff_in.m;
 
+    // Input is lex-sorted; duplicates are adjacent groups.
+    // Build canonical[i] = index into the unique-solution space.
+    std::vector<int>         canonical(n_in);
+    std::vector<std::size_t> unique_orig;
+    unique_orig.reserve(n_in);
+
+    for (std::size_t i = 0; i < n_in; ++i) {
+        bool is_dup = !unique_orig.empty();
+        for (std::size_t k = 0; k < m && is_dup; ++k) {
+            is_dup = (ff_in.at(k, unique_orig.back()) == ff_in.at(k, i));
+        }
+        canonical[i] = is_dup ? static_cast<int>(unique_orig.size()) - 1
+                               : static_cast<int>(unique_orig.size());
+        if (!is_dup) { unique_orig.push_back(i); }
+    }
+
+    // If duplicates exist, work on a compacted copy; otherwise alias ff_in.
+    std::size_t const n  = unique_orig.size();
+    int         const ni = static_cast<int>(n);
+
+    detail::flat_fitness ff_storage;
+    detail::flat_fitness const* ff = &ff_in;
+    if (n < n_in) {
+        ff_storage.n = n;
+        ff_storage.m = m;
+        ff_storage.data.resize(n * m);
+        for (std::size_t k = 0; k < m; ++k) {
+            for (std::size_t j = 0; j < n; ++j) {
+                ff_storage.data[k * n + j] = ff_in.at(k, unique_orig[j]);
+            }
+        }
+        ff = &ff_storage;
+    }
+
+    // Core MNDS algorithm.
     bitset_manager bsm(n);
 
-    std::vector<detail::sort_item> items(n);
-    std::vector<detail::sort_item> scratch(n);
-    for (std::size_t i = 0; i < n; ++i) { items[i] = {static_cast<int>(i), ff.at(1, i)}; }
+    std::vector<detail::sort_item> items(n), scratch(n);
+    for (std::size_t i = 0; i < n; ++i) { items[i] = {static_cast<int>(i), ff->at(1, i)}; }
     detail::radix_sort(items.data(), scratch.data(), ni);
 
+    bool any_dominance{true};
     for (std::size_t obj = 1; obj < m; ++obj) {
         if (obj > 1) {
-            for (auto& [idx, v] : items) { v = ff.at(obj, static_cast<std::size_t>(idx)); }
+            for (auto& [idx, v] : items) { v = ff->at(obj, static_cast<std::size_t>(idx)); }
+
+            // If the current values are already in sorted order, the per-individual
+            // bitsets don't need updating — skip the full update pass.
+            bool already_sorted{true};
+            for (int i = 0; i + 1 < ni && already_sorted; ++i) {
+                already_sorted = (items[i].value <= items[i + 1].value);
+            }
+            if (already_sorted) {
+                if (obj == m - 1) {
+                    for (std::size_t i = 0; i < n; ++i) {
+                        auto j = static_cast<std::size_t>(items[i].index);
+                        bsm.compute_solution_ranking(j, j);
+                    }
+                }
+                continue;
+            }
+
             detail::radix_sort(items.data(), scratch.data(), ni);
             bsm.clear_incremental();
         }
 
-        bool any_dominance{false};
+        any_dominance = false;
         for (std::size_t i = 0; i < n; ++i) {
             auto const j = static_cast<std::size_t>(items[i].index);
-            if (obj == 1) {
-                any_dominance |= bsm.init_solution_bitset(j);
-            } else if (obj < m - 1) {
-                any_dominance |= bsm.update_solution_dominance(j);
-            }
-            if (obj == m - 1) {
-                bsm.compute_solution_ranking(j, j);
-            }
+            if (obj == 1)         { any_dominance |= bsm.init_solution_bitset(j); }
+            else if (obj < m - 1) { any_dominance |= bsm.update_solution_dominance(j); }
+            if (obj == m - 1)     { bsm.compute_solution_ranking(j, j); }
             bsm.update_incremental(j);
         }
         if (!any_dominance) { break; }
     }
 
-    auto const& ranking = bsm.get_ranking();
-    auto const rmax = static_cast<std::size_t>(*std::max_element(ranking.begin(), ranking.end()));
+    // Map unique ranks back to all n_in individuals (including duplicates).
+    auto const& rank_u = bsm.get_ranking();
+    auto const rmax = static_cast<std::size_t>(*std::max_element(rank_u.begin(), rank_u.end()));
     fronts result(rmax + 1UZ);
-    for (std::size_t i = 0; i < n; ++i) {
-        result[static_cast<std::size_t>(ranking[i])].push_back(i);
+    for (std::size_t i = 0; i < n_in; ++i) {
+        result[static_cast<std::size_t>(rank_u[static_cast<std::size_t>(canonical[i])])].push_back(i);
     }
     return result;
 }
