@@ -17,4 +17,10 @@ struct sorter_traits {
     static constexpr bool is_exact = true;
 };
 
+// Tag type: pass `presorted` as the last argument to a sorter's operator() to signal
+// that the population is already in lexicographic fitness order.  Sorters that
+// internally pre-sort will skip that step.
+struct presorted_t {};
+inline constexpr presorted_t presorted{};
+
 } // namespace ndsort

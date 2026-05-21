@@ -144,22 +144,18 @@ struct item {
 
 auto merge_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
-    // Algorithm requires individuals in lexicographic fitness order.
-    auto const perm = detail::lex_perm(ff);
-    auto const sff  = detail::reindex(ff, perm);
-
-    auto const n = sff.n;
-    auto const m = sff.m;
+    auto const n = ff.n;
+    auto const m = ff.m;
 
     bitset_manager bsm(n);
 
     std::vector<item> items(n);
-    for (std::size_t i = 0; i < n; ++i) { items[i] = {static_cast<int>(i), sff.at(1, i)}; }
+    for (std::size_t i = 0; i < n; ++i) { items[i] = {static_cast<int>(i), ff.at(1, i)}; }
     std::stable_sort(items.begin(), items.end());
 
     for (std::size_t obj = 1; obj < m; ++obj) {
         if (obj > 1) {
-            for (auto& [idx, v] : items) { v = sff.at(obj, static_cast<std::size_t>(idx)); }
+            for (auto& [idx, v] : items) { v = ff.at(obj, static_cast<std::size_t>(idx)); }
             std::stable_sort(items.begin(), items.end());
             bsm.clear_incremental();
         }
@@ -184,7 +180,7 @@ auto merge_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) con
     auto const rmax = static_cast<std::size_t>(*std::max_element(ranking.begin(), ranking.end()));
     fronts result(rmax + 1UZ);
     for (std::size_t i = 0; i < n; ++i) {
-        result[static_cast<std::size_t>(ranking[i])].push_back(perm[i]);
+        result[static_cast<std::size_t>(ranking[i])].push_back(i);
     }
     return result;
 }

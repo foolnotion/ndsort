@@ -13,12 +13,8 @@ namespace ndsort {
 
 auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
-    // Algorithm requires individuals in lexicographic fitness order.
-    auto const perm = detail::lex_perm(ff);
-    auto const sff  = detail::reindex(ff, perm);
-
-    auto const n = static_cast<int>(sff.n);
-    auto const m = static_cast<int>(sff.m);
+    auto const n = static_cast<int>(ff.n);
+    auto const m = static_cast<int>(ff.m);
 
     // solution_sets[obj][rank] = list of solution indices in that rank set for objective obj
     std::vector<std::vector<std::vector<int>>> solution_sets(m);
@@ -43,8 +39,8 @@ auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/
     for (auto j = 1; j < m; ++j) {
         sorted_by_objective[j] = sorted_by_objective[j - 1];
         std::stable_sort(sorted_by_objective[j].begin(), sorted_by_objective[j].end(),
-                         [&](int a, int b) { return sff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(a))
-                                                  < sff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(b)); });
+                         [&](int a, int b) { return ff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(a))
+                                                  < ff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(b)); });
     }
 
     auto add_to_rank_set = [&](int s, int j) {
@@ -60,7 +56,7 @@ auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/
         // and t[k] <= s[k] for all k in comparison_sets[t]... simplified: none_of a[k] < b[k]
         return std::ranges::none_of(comparison_sets[t], [&](int k) {
             auto const ks = static_cast<std::size_t>(k);
-            return sff.at(ks, static_cast<std::size_t>(s)) < sff.at(ks, static_cast<std::size_t>(t));
+            return ff.at(ks, static_cast<std::size_t>(s)) < ff.at(ks, static_cast<std::size_t>(t));
         });
     };
 
@@ -106,7 +102,7 @@ auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/
     auto rmax = static_cast<std::size_t>(*std::max_element(rank.begin(), rank.end()));
     fronts result(rmax + 1UZ);
     for (auto i = 0; i < n; ++i) {
-        result[static_cast<std::size_t>(rank[i])].push_back(perm[static_cast<std::size_t>(i)]);
+        result[static_cast<std::size_t>(rank[i])].push_back(static_cast<std::size_t>(i));
     }
     return result;
 }

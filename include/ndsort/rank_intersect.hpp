@@ -14,9 +14,25 @@ namespace ndsort {
 // Fastest in practice for large populations with low-to-mid objective counts.
 // EVE and all SIMD machinery are confined to rank_intersect.cpp — no heavy headers leak.
 struct NDSORT_EXPORT rank_intersect_sorter {
+    // Default: pre-sort population lexicographically, run algorithm, map results back.
     template<typename P, typename Proj = std::identity>
         requires population<P, Proj>
     auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts
+    {
+        auto ff        = detail::flatten(std::forward<P>(pop), proj);
+        auto const perm = detail::lex_perm(ff);
+        auto const sff  = detail::reindex(ff, perm);
+        auto result    = sort_impl(sff, eps);
+        for (auto& front : result) {
+            for (auto& idx : front) { idx = perm[idx]; }
+        }
+        return result;
+    }
+
+    // Presorted overload: caller guarantees population is already in lexicographic order.
+    template<typename P, typename Proj = std::identity>
+        requires population<P, Proj>
+    auto operator()(P&& pop, double eps, Proj proj, presorted_t) const -> fronts
     {
         return sort_impl(detail::flatten(std::forward<P>(pop), proj), eps);
     }

@@ -253,16 +253,12 @@ void update_ranks(Storage const& store, std::vector<bitset_ref> const& refs,
 
 auto rank_intersect_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
-    // Algorithm requires individuals in lexicographic fitness order.
-    auto const perm = detail::lex_perm(ff);
-    auto const sff  = detail::reindex(ff, perm);
-
-    int const n  = static_cast<int>(sff.n);
-    int const m  = static_cast<int>(sff.m);
+    int const n  = static_cast<int>(ff.n);
+    int const m  = static_cast<int>(ff.m);
     int const nb = n / k_digits + static_cast<int>(n % k_digits != 0);
     auto const ub = static_cast<std::size_t>(k_digits * nb) - static_cast<std::size_t>(n);
 
-    auto const& fvals = sff.data;
+    auto const& fvals = ff.data;
 
     std::vector<bitset_ref> refs(n);
     std::vector<int>        rank(n, 0);
@@ -272,7 +268,7 @@ auto rank_intersect_sorter::sort_impl(detail::flat_fitness const& ff, double /*e
     std::fill_n(rs[0].get(), nb, k_ones);
     rs[0][nb - 1] >>= ub;
 
-    auto const obj1_offset = static_cast<int>(sff.n); // data[1 * n + 0]
+    auto const obj1_offset = static_cast<int>(ff.n); // data[1 * n + 0]
 
     if (packed_pool::total_words(n, nb) <= k_pool_budget) {
         auto pool = packed_pool::create(n, nb);
@@ -290,7 +286,7 @@ auto rank_intersect_sorter::sort_impl(detail::flat_fitness const& ff, double /*e
     auto const rmax = static_cast<std::size_t>(*std::max_element(rank.begin(), rank.end()));
     fronts result(rmax + 1UZ);
     for (std::size_t i = 0; i < static_cast<std::size_t>(n); ++i) {
-        result[static_cast<std::size_t>(rank[i])].push_back(perm[i]);
+        result[static_cast<std::size_t>(rank[i])].push_back(i);
     }
     return result;
 }

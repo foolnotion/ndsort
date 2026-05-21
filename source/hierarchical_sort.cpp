@@ -12,15 +12,12 @@ namespace ndsort {
 
 auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
-    // Algorithm requires individuals in lexicographic fitness order.
-    auto const perm = detail::lex_perm(ff);
-    auto const sff  = detail::reindex(ff, perm);
-    auto const n = sff.n;
+    auto const n = ff.n;
 
     // a weakly dominates b if a[k] <= b[k] for all k
     auto dominates = [&](std::size_t a, std::size_t b) -> bool {
-        for (std::size_t k = 0; k < sff.m; ++k) {
-            if (sff.at(k, a) > sff.at(k, b)) { return false; }
+        for (std::size_t k = 0; k < ff.m; ++k) {
+            if (ff.at(k, a) > ff.at(k, b)) { return false; }
         }
         return true;
     };
@@ -53,8 +50,6 @@ auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps
         std::stable_sort(dominated_queue.begin(), dominated_queue.end());
         std::swap(dominated_queue, queue);
         dominated_queue.clear();
-        // Map sorted indices back to original indices.
-        for (auto& idx : front) { idx = perm[idx]; }
         result.push_back(std::move(front));
     }
     return result;
