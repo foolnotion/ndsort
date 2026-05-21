@@ -2,6 +2,7 @@
 // Best Order Sort — https://doi.org/10.1145/2908961.2931684
 
 #include "ndsort/best_order_sort.hpp"
+#include "ndsort/detail/sorting_primitives.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -13,8 +14,9 @@ namespace ndsort {
 
 auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
-    auto const n = static_cast<int>(ff.n);
-    auto const m = static_cast<int>(ff.m);
+    auto const n  = static_cast<int>(ff.n);
+    auto const m  = static_cast<int>(ff.m);
+    auto const ni = n; // already int
 
     // solution_sets[obj][rank] = list of solution indices in that rank set for objective obj
     std::vector<std::vector<std::vector<int>>> solution_sets(m);
@@ -30,17 +32,29 @@ auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/
     std::vector<int> rank(n, 0);
 
     int sorted_count{0};
-    int rank_count{1}; // number of fronts so far
+    int rank_count{1};
 
     // sorted_by_objective[j] = indices sorted by objective j
+    // obj 0: already sorted (lex-sorted input), identity permutation
+    // obj j>0: radix sort stably on the previous order (items carries prev order as tiebreaker)
     std::vector<std::vector<int>> sorted_by_objective(m);
     sorted_by_objective[0].resize(n);
     std::iota(sorted_by_objective[0].begin(), sorted_by_objective[0].end(), 0);
-    for (auto j = 1; j < m; ++j) {
-        sorted_by_objective[j] = sorted_by_objective[j - 1];
-        std::stable_sort(sorted_by_objective[j].begin(), sorted_by_objective[j].end(),
-                         [&](int a, int b) { return ff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(a))
-                                                  < ff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(b)); });
+
+    if (m > 1) {
+        std::vector<detail::sort_item> items(n), scratch(n);
+        // Start with identity order; items[i] = {i, obj1_value[i]}
+        for (int i = 0; i < n; ++i) { items[i] = {i, ff.at(1, static_cast<std::size_t>(i))}; }
+        detail::radix_sort(items.data(), scratch.data(), ni);
+        sorted_by_objective[1].resize(n);
+        for (int i = 0; i < n; ++i) { sorted_by_objective[1][i] = items[i].index; }
+
+        for (auto j = 2; j < m; ++j) {
+            for (auto& [idx, v] : items) { v = ff.at(static_cast<std::size_t>(j), static_cast<std::size_t>(idx)); }
+            detail::radix_sort(items.data(), scratch.data(), ni);
+            sorted_by_objective[j].resize(n);
+            for (int i = 0; i < n; ++i) { sorted_by_objective[j][i] = items[i].index; }
+        }
     }
 
     auto add_to_rank_set = [&](int s, int j) {

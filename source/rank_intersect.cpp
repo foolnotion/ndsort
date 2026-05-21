@@ -3,15 +3,14 @@
 // Heavy machinery (EVE SIMD, radix sort, packed bitsets) is confined here.
 
 #include "ndsort/rank_intersect.hpp"
+#include "ndsort/detail/sorting_primitives.hpp"
 
 #include <eve/module/algo.hpp>
 
-#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -20,56 +19,16 @@
 namespace ndsort {
 namespace {
 
+using detail::radix_sort;
+using detail::sort_item;
+using item = sort_item;
+
 static constexpr uint64_t k_zeros{0UL};
 static constexpr uint64_t k_ones{~k_zeros};
 static constexpr int      k_digits{std::numeric_limits<uint64_t>::digits};
 
 // Packed-pool budget: ~16 MB covers populations up to ~16k individuals.
 static constexpr std::size_t k_pool_budget{2UL << 20};
-
-// IEEE 754 double → sortable uint64_t.
-// Positive doubles map to the upper half, negatives to the lower half, both in ascending order.
-inline auto float_to_sortable(double f) -> uint64_t
-{
-    uint64_t bits{};
-    std::memcpy(&bits, &f, sizeof(bits));
-    uint64_t const mask = -(bits >> 63) | (uint64_t{1} << 63);
-    return bits ^ mask;
-}
-
-static constexpr int k_radix_bits  = 11;
-static constexpr int k_radix_size  = 1 << k_radix_bits;
-static constexpr int k_radix_mask  = k_radix_size - 1;
-static constexpr int k_key_bits    = 64; // always uint64_t
-static constexpr int k_num_passes  = (k_key_bits + k_radix_bits - 1) / k_radix_bits; // 6
-
-struct item {
-    int    index;
-    double value;
-};
-
-void radix_sort(item* items, item* scratch, int n)
-{
-    item* src = items;
-    item* dst = scratch;
-    for (int pass = 0; pass < k_num_passes; ++pass) {
-        int const shift = pass * k_radix_bits;
-        int counts[k_radix_size]{};
-        for (int i = 0; i < n; ++i) {
-            ++counts[(float_to_sortable(src[i].value) >> shift) & k_radix_mask];
-        }
-        int offsets[k_radix_size];
-        offsets[0] = 0;
-        for (int i = 1; i < k_radix_size; ++i) { offsets[i] = offsets[i - 1] + counts[i - 1]; }
-        for (int i = 0; i < n; ++i) {
-            int const bucket = static_cast<int>((float_to_sortable(src[i].value) >> shift) & k_radix_mask);
-            dst[offsets[bucket]++] = src[i];
-        }
-        std::swap(src, dst);
-    }
-    // k_num_passes=6 is even → result is already in items, no copy needed
-    static_assert(k_num_passes % 2 == 0, "adjust copy logic if num_passes is odd");
-}
 
 struct bitset_ref { int lo; int hi; };
 

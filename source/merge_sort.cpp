@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 
 #include "ndsort/merge_sort.hpp"
+#include "ndsort/detail/sorting_primitives.hpp"
 
-#include <algorithm>
+#include <eve/module/algo.hpp>
+
 #include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <vector>
 
 namespace ndsort {
@@ -56,7 +59,13 @@ public:
         m_ranges[id][k_last]  = lw;
 
         if (fw > lw) { return false; }
-        for (auto w = fw; w <= lw; ++w) { m_bitsets[id][w] &= m_incremental[w]; }
+
+        auto* bits = m_bitsets[id].data();
+        std::span<word_t>       pb(bits + fw, lw - fw + 1);
+        std::span<word_t const> pm(m_incremental.data() + fw, lw - fw + 1);
+        eve::algo::transform_to(eve::views::zip(pb, pm), pb, [](auto t) {
+            return kumi::apply(std::bit_and{}, t);
+        });
         return true;
     }
 
@@ -134,29 +143,25 @@ public:
     }
 };
 
-struct item {
-    int    index;
-    double value;
-    friend auto operator<(item a, item b) -> bool { return a.value < b.value; }
-};
-
 } // namespace
 
 auto merge_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
-    auto const n = ff.n;
-    auto const m = ff.m;
+    auto const n  = ff.n;
+    auto const m  = ff.m;
+    auto const ni = static_cast<int>(n);
 
     bitset_manager bsm(n);
 
-    std::vector<item> items(n);
+    std::vector<detail::sort_item> items(n);
+    std::vector<detail::sort_item> scratch(n);
     for (std::size_t i = 0; i < n; ++i) { items[i] = {static_cast<int>(i), ff.at(1, i)}; }
-    std::stable_sort(items.begin(), items.end());
+    detail::radix_sort(items.data(), scratch.data(), ni);
 
     for (std::size_t obj = 1; obj < m; ++obj) {
         if (obj > 1) {
             for (auto& [idx, v] : items) { v = ff.at(obj, static_cast<std::size_t>(idx)); }
-            std::stable_sort(items.begin(), items.end());
+            detail::radix_sort(items.data(), scratch.data(), ni);
             bsm.clear_incremental();
         }
 
