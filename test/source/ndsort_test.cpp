@@ -34,13 +34,6 @@ auto sorted_fronts(S const& sorter, population_t const& pop, double eps = 0.0) -
     return f;
 }
 
-// Lexicographically sorted population (required by ENS sorters).
-auto lex_sorted(population_t pop) -> population_t
-{
-    std::ranges::sort(pop);
-    return pop;
-}
-
 } // namespace
 
 TEST_CASE("deductive sorter — trivial cases")
@@ -90,15 +83,11 @@ TEST_CASE("all sorters agree with deductive — 2 objectives")
     SECTION("best_order_sorter") {
         REQUIRE(sorted_fronts(ndsort::best_order_sorter{}, pop) == ref);
     }
-    SECTION("efficient_binary_sorter (pre-sorted)") {
-        auto const sorted_pop = lex_sorted(pop);
-        auto const ref_sorted = sorted_fronts(ndsort::deductive_sorter{}, sorted_pop);
-        REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter{}, sorted_pop) == ref_sorted);
+    SECTION("efficient_binary_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter{}, pop) == ref);
     }
-    SECTION("efficient_sequential_sorter (pre-sorted)") {
-        auto const sorted_pop = lex_sorted(pop);
-        auto const ref_sorted = sorted_fronts(ndsort::deductive_sorter{}, sorted_pop);
-        REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter{}, sorted_pop) == ref_sorted);
+    SECTION("efficient_sequential_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter{}, pop) == ref);
     }
 }
 
@@ -124,6 +113,43 @@ TEST_CASE("all sorters agree with deductive — multiple objectives")
     }
     SECTION("best_order_sorter") {
         REQUIRE(sorted_fronts(ndsort::best_order_sorter{}, pop) == ref);
+    }
+    SECTION("efficient_binary_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter{}, pop) == ref);
+    }
+    SECTION("efficient_sequential_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter{}, pop) == ref);
+    }
+}
+
+TEST_CASE("all sorters agree — eps-dedup places near-duplicates in same front")
+{
+    // {0,0} and {0.005,0.005} differ by 0.005 < eps=0.01 on both objectives.
+    // Both are clearly better than {1,1} (diff ~1.0 >> eps).
+    // All sorters must agree: 2 fronts, near-dups together in front 0.
+    population_t pop{{0.0, 0.0}, {0.005, 0.005}, {1.0, 1.0}};
+    constexpr double eps = 0.01;
+    auto const ref = sorted_fronts(ndsort::deductive_sorter{}, pop, eps);
+    REQUIRE(ref.size() == 2);
+    REQUIRE(ref[0].size() == 2);
+
+    SECTION("rank_intersect_sorter") {
+        REQUIRE(sorted_fronts(ndsort::rank_intersect_sorter{}, pop, eps) == ref);
+    }
+    SECTION("merge_sorter") {
+        REQUIRE(sorted_fronts(ndsort::merge_sorter{}, pop, eps) == ref);
+    }
+    SECTION("hierarchical_sorter") {
+        REQUIRE(sorted_fronts(ndsort::hierarchical_sorter{}, pop, eps) == ref);
+    }
+    SECTION("best_order_sorter") {
+        REQUIRE(sorted_fronts(ndsort::best_order_sorter{}, pop, eps) == ref);
+    }
+    SECTION("efficient_binary_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter{}, pop, eps) == ref);
+    }
+    SECTION("efficient_sequential_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter{}, pop, eps) == ref);
     }
 }
 
