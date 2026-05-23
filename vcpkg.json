@@ -17,6 +17,15 @@
           "version>=": "3.7.1"
         }
       ]
+    },
+    "bench": {
+      "description": "Dependencies for benchmarks",
+      "dependencies": [
+        {
+          "name": "nanobench",
+          "version>=": "4.3.11"
+        }
+      ]
     }
   },
   "builtin-baseline": "d7112d1a4fb50410d3639f5f586972591d848beb"
