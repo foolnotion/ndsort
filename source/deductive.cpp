@@ -10,10 +10,14 @@
 #include <vector>
 
 namespace ndsort {
+namespace {
 
-auto deductive_sorter::sort_impl(detail::flat_fitness const& ff, double eps) const -> fronts
+template<int M>
+auto sort_impl_m(detail::flat_fitness const& ff, double eps) -> fronts
 {
     auto const n = ff.n;
+    auto const m = M > 0 ? static_cast<std::size_t>(M) : ff.m;
+
     static constexpr std::size_t digits = std::numeric_limits<uint64_t>::digits;
     auto const nb = n / digits + (n % digits != 0 ? 1UZ : 0UZ);
 
@@ -30,11 +34,10 @@ auto deductive_sorter::sort_impl(detail::flat_fitness const& ff, double eps) con
         return get_bit(sorted_bits, i) || get_bit(dominated, i);
     };
 
-    // Pareto dominance between individuals a and b using the flat SoA layout.
     auto compare = [&](std::size_t a, std::size_t b) -> dominance {
         uint8_t lhs{0};
         uint8_t rhs{0};
-        for (std::size_t k = 0; k < ff.m; ++k) {
+        for (std::size_t k = 0; k < m; ++k) {
             auto const va = ff.at(k, a);
             auto const vb = ff.at(k, b);
             lhs |= static_cast<uint8_t>(va < vb && (vb - va) > eps);
@@ -67,6 +70,15 @@ auto deductive_sorter::sort_impl(detail::flat_fitness const& ff, double eps) con
         result.push_back(std::move(front));
     }
     return result;
+}
+
+} // namespace
+
+auto deductive_sorter::sort_impl(detail::flat_fitness const& ff, double eps) const -> fronts
+{
+    return detail::dispatch_on_m(ff, [&](auto mc) {
+        return sort_impl_m<mc.value>(ff, eps);
+    });
 }
 
 } // namespace ndsort

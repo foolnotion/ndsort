@@ -9,14 +9,16 @@
 #include <vector>
 
 namespace ndsort {
+namespace {
 
-auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
+template<int M>
+auto sort_impl_m(detail::flat_fitness const& ff) -> fronts
 {
     auto const n = ff.n;
+    auto const m = M > 0 ? static_cast<std::size_t>(M) : ff.m;
 
-    // a weakly dominates b if a[k] <= b[k] for all k
     auto dominates = [&](std::size_t a, std::size_t b) -> bool {
-        for (std::size_t k = 0; k < ff.m; ++k) {
+        for (std::size_t k = 0; k < m; ++k) {
             if (ff.at(k, a) > ff.at(k, b)) { return false; }
         }
         return true;
@@ -46,13 +48,21 @@ auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps
                 }
             }
         }
-        // stable-sort the dominated set before making it the next round's queue
         std::stable_sort(dominated_queue.begin(), dominated_queue.end());
         std::swap(dominated_queue, queue);
         dominated_queue.clear();
         result.push_back(std::move(front));
     }
     return result;
+}
+
+} // namespace
+
+auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
+{
+    return detail::dispatch_on_m(ff, [&](auto mc) {
+        return sort_impl_m<mc.value>(ff);
+    });
 }
 
 } // namespace ndsort

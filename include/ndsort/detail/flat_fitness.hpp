@@ -5,6 +5,7 @@
 #include <functional>
 #include <numeric>
 #include <ranges>
+#include <type_traits>
 #include <vector>
 
 #include "ndsort/concepts.hpp"
@@ -84,6 +85,22 @@ inline auto reindex(flat_fitness const& ff, std::vector<std::size_t> const& perm
         }
     }
     return result;
+}
+
+// Dispatch on the number of objectives at compile time for m = 1..5,
+// falling back to a runtime value (M = 0) for anything larger.
+// Usage: dispatch_on_m(ff, [&](auto mc) { return sort_impl<mc.value>(ff, eps); });
+template<typename F>
+auto dispatch_on_m(flat_fitness const& ff, F&& fn)
+{
+    switch (ff.m) {
+        case 1:  return fn(std::integral_constant<int, 1>{});
+        case 2:  return fn(std::integral_constant<int, 2>{});
+        case 3:  return fn(std::integral_constant<int, 3>{});
+        case 4:  return fn(std::integral_constant<int, 4>{});
+        case 5:  return fn(std::integral_constant<int, 5>{});
+        default: return fn(std::integral_constant<int, 0>{});
+    }
 }
 
 } // namespace ndsort::detail
