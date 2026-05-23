@@ -33,7 +33,7 @@ concept population =
 template<typename S, typename P, typename Proj = std::identity>
 concept nondominated_sorter =
     population<P, Proj> &&
-    requires(S s, P& pop, double eps, Proj proj) {
+    requires(S const& s, P const& pop, double eps, Proj proj) {
         { s(pop, eps, proj) } -> std::same_as<fronts>;
         { s(pop, eps)       } -> std::same_as<fronts>;
         { s(pop)            } -> std::same_as<fronts>;

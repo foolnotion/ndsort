@@ -16,19 +16,9 @@ struct NDSORT_EXPORT efficient_binary_sorter {
         requires population<P, Proj>
     auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts
     {
-        auto ff          = detail::flatten(std::forward<P>(pop), proj);
-        auto const perm  = detail::lex_perm(ff);
-        auto [uff, canonical] = detail::eps_dedup(detail::reindex(ff, perm), eps);
-        auto result      = sort_impl(uff, eps);
-        std::vector<std::size_t> urank(uff.n);
-        for (std::size_t f = 0; f < result.size(); ++f) {
-            for (auto j : result[f]) { urank[j] = f; }
-        }
-        fronts expanded(result.size());
-        for (std::size_t i = 0; i < ff.n; ++i) {
-            expanded[urank[canonical[i]]].push_back(perm[i]);
-        }
-        return expanded;
+        return detail::sort_with_dedup(
+            [this](detail::flat_fitness const& ff, double e) { return sort_impl(ff, e); },
+            std::forward<P>(pop), eps, proj);
     }
 
     // Presorted overload: caller guarantees population is already in lexicographic order.
@@ -36,7 +26,9 @@ struct NDSORT_EXPORT efficient_binary_sorter {
         requires population<P, Proj>
     auto operator()(P&& pop, double eps, Proj proj, presorted_t) const -> fronts
     {
-        return sort_impl(detail::flatten(std::forward<P>(pop), proj), eps);
+        return detail::sort_presorted_with_dedup(
+            [this](detail::flat_fitness const& ff, double e) { return sort_impl(ff, e); },
+            std::forward<P>(pop), eps, proj);
     }
 
 private:
@@ -50,19 +42,9 @@ struct NDSORT_EXPORT efficient_sequential_sorter {
         requires population<P, Proj>
     auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts
     {
-        auto ff          = detail::flatten(std::forward<P>(pop), proj);
-        auto const perm  = detail::lex_perm(ff);
-        auto [uff, canonical] = detail::eps_dedup(detail::reindex(ff, perm), eps);
-        auto result      = sort_impl(uff, eps);
-        std::vector<std::size_t> urank(uff.n);
-        for (std::size_t f = 0; f < result.size(); ++f) {
-            for (auto j : result[f]) { urank[j] = f; }
-        }
-        fronts expanded(result.size());
-        for (std::size_t i = 0; i < ff.n; ++i) {
-            expanded[urank[canonical[i]]].push_back(perm[i]);
-        }
-        return expanded;
+        return detail::sort_with_dedup(
+            [this](detail::flat_fitness const& ff, double e) { return sort_impl(ff, e); },
+            std::forward<P>(pop), eps, proj);
     }
 
     // Presorted overload: caller guarantees population is already in lexicographic order.
@@ -70,11 +52,27 @@ struct NDSORT_EXPORT efficient_sequential_sorter {
         requires population<P, Proj>
     auto operator()(P&& pop, double eps, Proj proj, presorted_t) const -> fronts
     {
-        return sort_impl(detail::flatten(std::forward<P>(pop), proj), eps);
+        return detail::sort_presorted_with_dedup(
+            [this](detail::flat_fitness const& ff, double e) { return sort_impl(ff, e); },
+            std::forward<P>(pop), eps, proj);
     }
 
 private:
     auto sort_impl(detail::flat_fitness const&, double eps) const -> fronts;
+};
+
+template<>
+struct sorter_traits<efficient_binary_sorter> {
+    static constexpr bool parallel_objectives   = false;
+    static constexpr bool requires_sorted_input = true;
+    static constexpr bool is_exact              = true;
+};
+
+template<>
+struct sorter_traits<efficient_sequential_sorter> {
+    static constexpr bool parallel_objectives   = false;
+    static constexpr bool requires_sorted_input = true;
+    static constexpr bool is_exact              = true;
 };
 
 } // namespace ndsort

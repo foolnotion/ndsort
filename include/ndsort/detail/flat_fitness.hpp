@@ -133,7 +133,7 @@ inline auto eps_dedup(flat_fitness ff, double eps) -> dedup_result
     return {std::move(uq), std::move(canonical)};
 }
 
-// Dispatch on the number of objectives at compile time for m = 1..5,
+// Dispatch on the number of objectives at compile time for m = 1..8,
 // falling back to a runtime value (M = 0) for anything larger.
 // Usage: dispatch_on_m(ff, [&](auto mc) { return sort_impl<mc.value>(ff, eps); });
 template<typename F>
@@ -145,8 +145,54 @@ auto dispatch_on_m(flat_fitness const& ff, F&& fn)
         case 3:  return fn(std::integral_constant<int, 3>{});
         case 4:  return fn(std::integral_constant<int, 4>{});
         case 5:  return fn(std::integral_constant<int, 5>{});
+        case 6:  return fn(std::integral_constant<int, 6>{});
+        case 7:  return fn(std::integral_constant<int, 7>{});
+        case 8:  return fn(std::integral_constant<int, 8>{});
         default: return fn(std::integral_constant<int, 0>{});
     }
+}
+
+// Common preprocessing pipeline: lex sort → eps-dedup → sort_fn → expand ranks.
+// sort_fn must be callable as sort_fn(flat_fitness const&, double eps) -> ndsort::fronts.
+template<typename SortFn, typename P, typename Proj>
+    requires population<P, Proj>
+auto sort_with_dedup(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
+{
+    if (std::ranges::size(pop) == 0) { return {}; }
+    auto ff               = flatten(std::forward<P>(pop), proj);
+    auto const perm       = lex_perm(ff);
+    auto [uff, canonical] = eps_dedup(reindex(ff, perm), eps);
+    auto result           = sort_fn(uff, eps);
+    std::vector<std::size_t> urank(uff.n);
+    for (std::size_t f = 0; f < result.size(); ++f) {
+        for (auto j : result[f]) { urank[j] = f; }
+    }
+    ndsort::fronts expanded(result.size());
+    for (std::size_t i = 0; i < ff.n; ++i) {
+        expanded[urank[canonical[i]]].push_back(perm[i]);
+    }
+    return expanded;
+}
+
+// Presorted variant: caller guarantees input is already in lex fitness order.
+// Skips lex sort; still deduplicates so identical/eps-close solutions land in the same front.
+template<typename SortFn, typename P, typename Proj>
+    requires population<P, Proj>
+auto sort_presorted_with_dedup(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
+{
+    if (std::ranges::size(pop) == 0) { return {}; }
+    auto ff               = flatten(std::forward<P>(pop), proj);
+    auto [uff, canonical] = eps_dedup(ff, eps);
+    auto result           = sort_fn(uff, eps);
+    std::vector<std::size_t> urank(uff.n);
+    for (std::size_t f = 0; f < result.size(); ++f) {
+        for (auto j : result[f]) { urank[j] = f; }
+    }
+    ndsort::fronts expanded(result.size());
+    for (std::size_t i = 0; i < ff.n; ++i) {
+        expanded[urank[canonical[i]]].push_back(i);
+    }
+    return expanded;
 }
 
 } // namespace ndsort::detail

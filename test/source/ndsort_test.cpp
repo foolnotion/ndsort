@@ -189,11 +189,150 @@ TEST_CASE("eps_adapter — burns in epsilon")
 TEST_CASE("nondominated_sorter concept is satisfied")
 {
     using pop_t = std::vector<std::vector<double>>;
-    static_assert(ndsort::nondominated_sorter<ndsort::deductive_sorter,        pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::rank_intersect_sorter,   pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::merge_sorter,            pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::hierarchical_sorter,     pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::best_order_sorter,       pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::efficient_binary_sorter, pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::deductive_sorter,             pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::rank_intersect_sorter,        pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::merge_sorter,                 pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::hierarchical_sorter,          pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::best_order_sorter,            pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::efficient_binary_sorter,      pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::efficient_sequential_sorter,  pop_t>);
+    static_assert(ndsort::nondominated_sorter<ndsort::eps_adapter<ndsort::deductive_sorter>, pop_t>);
     SUCCEED();
+}
+
+TEST_CASE("edge cases — empty, single individual, single objective")
+{
+    ndsort::deductive_sorter sorter;
+
+    SECTION("empty population") {
+        population_t pop;
+        auto f = sorter(pop);
+        REQUIRE(f.empty());
+    }
+
+    SECTION("single-objective") {
+        population_t pop{{3.0}, {1.0}, {2.0}};
+        auto f = sorter(pop);
+        REQUIRE(f.size() == 3);
+        // Each individual is in its own front (all dominate each other in 1-obj case).
+        for (auto const& front : f) { REQUIRE(front.size() == 1); }
+    }
+}
+
+TEST_CASE("fronts partition — every individual appears exactly once")
+{
+    auto const [n, m, seed] = GENERATE(
+        std::tuple{100UZ, 2UZ, 7UL},
+        std::tuple{200UZ, 5UZ, 8UL},
+        std::tuple{50UZ,  8UZ, 9UL});
+
+    auto const pop  = make_population(n, m, seed);
+    auto const f    = ndsort::rank_intersect_sorter{}(pop);
+
+    std::vector<bool> seen(n, false);
+    for (auto const& front : f) {
+        for (auto idx : front) {
+            REQUIRE_FALSE(seen[idx]);
+            seen[idx] = true;
+        }
+    }
+    REQUIRE(std::ranges::all_of(seen, [](bool b) { return b; }));
+}
+
+TEST_CASE("all sorters agree — large m (dispatch fallback path)")
+{
+    // m=9 exceeds dispatch_on_m's compile-time cases, exercising the runtime fallback.
+    auto const pop = make_population(100, 9, 42);
+    auto const ref = sorted_fronts(ndsort::deductive_sorter{}, pop);
+
+    SECTION("rank_intersect_sorter") {
+        REQUIRE(sorted_fronts(ndsort::rank_intersect_sorter{}, pop) == ref);
+    }
+    SECTION("hierarchical_sorter") {
+        REQUIRE(sorted_fronts(ndsort::hierarchical_sorter{}, pop) == ref);
+    }
+    SECTION("best_order_sorter") {
+        REQUIRE(sorted_fronts(ndsort::best_order_sorter{}, pop) == ref);
+    }
+    SECTION("efficient_binary_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter{}, pop) == ref);
+    }
+    SECTION("efficient_sequential_sorter") {
+        REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter{}, pop) == ref);
+    }
+}
+
+TEST_CASE("presorted overload produces same result as default overload")
+{
+    auto pop = make_population(200, 3, 55);
+    // Sort the population lexicographically to satisfy the presorted contract.
+    std::ranges::sort(pop);
+
+    auto const ref = sorted_fronts(ndsort::rank_intersect_sorter{}, pop);
+
+    auto presorted_fronts = [](auto const& sorter, population_t const& p) {
+        auto f = sorter(p, 0.0, std::identity{}, ndsort::presorted);
+        for (auto& front : f) { std::ranges::sort(front); }
+        return f;
+    };
+
+    SECTION("rank_intersect_sorter") {
+        REQUIRE(presorted_fronts(ndsort::rank_intersect_sorter{}, pop) == ref);
+    }
+    SECTION("merge_sorter") {
+        REQUIRE(presorted_fronts(ndsort::merge_sorter{}, pop) == ref);
+    }
+    SECTION("hierarchical_sorter") {
+        REQUIRE(presorted_fronts(ndsort::hierarchical_sorter{}, pop) == ref);
+    }
+    SECTION("best_order_sorter") {
+        REQUIRE(presorted_fronts(ndsort::best_order_sorter{}, pop) == ref);
+    }
+    SECTION("efficient_binary_sorter") {
+        REQUIRE(presorted_fronts(ndsort::efficient_binary_sorter{}, pop) == ref);
+    }
+    SECTION("efficient_sequential_sorter") {
+        REQUIRE(presorted_fronts(ndsort::efficient_sequential_sorter{}, pop) == ref);
+    }
+    SECTION("deductive_sorter") {
+        REQUIRE(presorted_fronts(ndsort::deductive_sorter{}, pop) == ref);
+    }
+}
+
+TEST_CASE("presorted + duplicates — identical solutions go in same front")
+{
+    // Input already in lex order; contains exact duplicates.
+    // Presorted overloads must dedup and not push duplicates to later fronts.
+    population_t pop{{0.0, 0.0}, {0.0, 0.0}, {1.0, 1.0}};
+
+    auto check = [&pop](auto const& sorter) {
+        auto f = sorter(pop, 0.0, std::identity{}, ndsort::presorted);
+        REQUIRE(f.size() == 2);
+        // Both duplicates must be in the same (first) front.
+        REQUIRE(f[0].size() == 2);
+        REQUIRE(f[1].size() == 1);
+    };
+
+    SECTION("efficient_binary_sorter")    { check(ndsort::efficient_binary_sorter{});    }
+    SECTION("efficient_sequential_sorter"){ check(ndsort::efficient_sequential_sorter{}); }
+    SECTION("hierarchical_sorter")        { check(ndsort::hierarchical_sorter{});         }
+    SECTION("merge_sorter")               { check(ndsort::merge_sorter{});                }
+    SECTION("best_order_sorter")          { check(ndsort::best_order_sorter{});           }
+    SECTION("deductive_sorter")           { check(ndsort::deductive_sorter{});            }
+}
+
+TEST_CASE("best_order_sort — eps on 3 objectives")
+{
+    // Two solutions that are eps-close on all 3 objectives should end up in the same front.
+    population_t pop{
+        {0.0, 0.0, 0.0},
+        {0.005, 0.005, 0.005},
+        {1.0, 1.0, 1.0}};
+    constexpr double eps = 0.01;
+
+    auto const ref = sorted_fronts(ndsort::deductive_sorter{}, pop, eps);
+    REQUIRE(ref.size() == 2);
+    REQUIRE(ref[0].size() == 2);
+
+    REQUIRE(sorted_fronts(ndsort::best_order_sorter{}, pop, eps) == ref);
 }

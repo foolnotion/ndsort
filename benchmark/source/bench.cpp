@@ -120,13 +120,14 @@ auto all_sorters() -> std::vector<sorter_entry>
         {"best_order",            [](pop_t const& p) { return ndsort::best_order_sorter{}(p); }},
         {"efficient_binary",      [](pop_t const& p) {
             auto s = p;
+            // vector<vector<double>> sorts lexicographically by value, equivalent to lex fitness sort.
             std::ranges::sort(s);
-            return ndsort::efficient_binary_sorter{}(s);
+            return ndsort::efficient_binary_sorter{}(s, 0.0, std::identity{}, ndsort::presorted);
         }},
         {"efficient_sequential",  [](pop_t const& p) {
             auto s = p;
             std::ranges::sort(s);
-            return ndsort::efficient_sequential_sorter{}(s);
+            return ndsort::efficient_sequential_sorter{}(s, 0.0, std::identity{}, ndsort::presorted);
         }},
     };
 }
