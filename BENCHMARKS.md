@@ -12,15 +12,15 @@ The fastest sorter per row is **bold**. Entries with >2 % MAPE are marked \*.
 
 ## Sorters
 
-| Short name | Algorithm |
-|:---|:---|
-| `deductive` | Deductive sort (baseline O(MN²)) |
-| `rank_intersect` | Rank-intersection with SIMD bitset sweeping |
-| `merge` | Merge sort–based NDS |
-| `hierarchical` | Hierarchical sort (divide-and-conquer) |
-| `best_order` | Best-order sort |
-| `eff_binary` | ENS-BS — efficient NDS with binary search (requires lex-sorted input) |
-| `eff_seq` | ENS-SS — efficient NDS with sequential search (requires lex-sorted input) |
+| Short name | Algorithm | Complexity (best / worst) | Reference |
+|:---|:---|:---|:---|
+| `deductive` | Deductive sort | O(MN²) expected / Θ(MN³) | [Mishra & Buzdalov, GECCO 2020](https://doi.org/10.1145/3377930.3390246) |
+| `rank_intersect` | Rank-intersect NDS — packed triangular bitsets, SIMD intersection, rank propagation | O(MN log N) avg / O(MN²) | [Burlacu, arXiv 2022](https://arxiv.org/abs/2203.13654) |
+| `merge` | Merge NDS (MNDS) | O(N log N) best / O(MN²) | [Moreno et al., IEEE TCYB 2020](https://doi.org/10.1109/TCYB.2020.2968301) |
+| `hierarchical` | Hierarchical NDS (HNDS) | O(MN√N) best / O(MN²) | [Bao et al., J. Comput. Sci. 2017](https://doi.org/10.1016/j.jocs.2017.09.015) |
+| `best_order` | Best Order Sort (BOS) | O(MN log N) best / O(MN²) | [Roy et al., GECCO 2016](https://doi.org/10.1145/2908961.2931684) |
+| `eff_binary` | ENS-BS — efficient NDS, binary search (requires lex-sorted input) | O(MN log N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |
+| `eff_seq` | ENS-SS — efficient NDS, sequential search (requires lex-sorted input) | O(MN√N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |
 
 ## Synthetic benchmarks
 
