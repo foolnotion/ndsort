@@ -210,6 +210,9 @@ void update_ranks(Storage const& store, std::vector<bitset_ref> const& refs,
 
 } // namespace
 
+// eps has no effect: dominance is implicit in the per-objective bitset construction, with
+// no tolerance applied to individual comparisons. For epsilon-box dominance use a sorter
+// that implements eps in its comparison logic (e.g. deductive_sorter).
 auto rank_intersect_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
 {
     int const n  = static_cast<int>(ff.n);

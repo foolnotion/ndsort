@@ -12,14 +12,15 @@ namespace ndsort {
 namespace {
 
 template<int M>
-auto sort_impl_m(detail::flat_fitness const& ff) -> fronts
+auto sort_impl_m(detail::flat_fitness const& ff, double eps) -> fronts
 {
     auto const n = ff.n;
     auto const m = M > 0 ? static_cast<std::size_t>(M) : ff.m;
 
+    // a weakly ε-dominates b if a[k] <= b[k] + eps for all k.
     auto dominates = [&](std::size_t a, std::size_t b) -> bool {
         for (std::size_t k = 0; k < m; ++k) {
-            if (ff.at(k, a) > ff.at(k, b)) { return false; }
+            if (ff.at(k, a) > ff.at(k, b) + eps) { return false; }
         }
         return true;
     };
@@ -58,10 +59,10 @@ auto sort_impl_m(detail::flat_fitness const& ff) -> fronts
 
 } // namespace
 
-auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
+auto hierarchical_sorter::sort_impl(detail::flat_fitness const& ff, double eps) const -> fronts
 {
     return detail::dispatch_on_m(ff, [&](auto mc) {
-        return sort_impl_m<mc.value>(ff);
+        return sort_impl_m<mc.value>(ff, eps);
     });
 }
 

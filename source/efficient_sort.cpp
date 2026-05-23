@@ -12,26 +12,25 @@ namespace {
 
 enum class ens_strategy { binary, sequential };
 
-// Check if individual j weakly dominates individual i (j[k] <= i[k] for all k).
-// Population must already be lexicographically sorted, so strict equality ties
-// put i and j in the same front — the <= check is correct for that semantics.
-auto weakly_dominates(detail::flat_fitness const& ff, std::size_t j, std::size_t i) -> bool
+// Returns true if j weakly ε-dominates i: j[k] <= i[k] + eps for all k.
+// For distinct solutions this is equivalent to Pareto domination when eps == 0.
+auto weakly_dominates(detail::flat_fitness const& ff, std::size_t j, std::size_t i, double eps) -> bool
 {
     for (std::size_t k = 0; k < ff.m; ++k) {
-        if (ff.at(k, j) > ff.at(k, i)) { return false; }
+        if (ff.at(k, j) > ff.at(k, i) + eps) { return false; }
     }
     return true;
 }
 
 template<ens_strategy Strategy>
-auto ens_sort_impl(detail::flat_fitness const& ff, double /*eps*/) -> fronts
+auto ens_sort_impl(detail::flat_fitness const& ff, double eps) -> fronts
 {
     auto const n = ff.n;
 
     // Check if individual i is dominated by any member of front f.
     auto dominated_by_front = [&](std::vector<std::size_t> const& f, std::size_t i) -> bool {
         return std::ranges::any_of(std::views::reverse(f), [&](std::size_t j) {
-            return weakly_dominates(ff, j, i);
+            return weakly_dominates(ff, j, i, eps);
         });
     };
 

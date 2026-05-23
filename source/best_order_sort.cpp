@@ -12,7 +12,7 @@
 
 namespace ndsort {
 
-auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/) const -> fronts
+auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double eps) const -> fronts
 {
     auto const n  = static_cast<int>(ff.n);
     auto const m  = static_cast<int>(ff.m);
@@ -64,13 +64,12 @@ auto best_order_sorter::sort_impl(detail::flat_fitness const& ff, double /*eps*/
         ss[r].push_back(s);
     };
 
-    // Check if individual s is dominated by individual t using only t's comparison set.
+    // Returns true if t weakly ε-dominates s on t's remaining comparison objectives:
+    // t[k] <= s[k] + eps for all k in comparison_sets[t].
     auto dominated_by = [&](int s, int t) -> bool {
-        // t dominates s if t[k] < s[k] for at least one k in comparison_sets[t],
-        // and t[k] <= s[k] for all k in comparison_sets[t]... simplified: none_of a[k] < b[k]
         return std::ranges::none_of(comparison_sets[t], [&](int k) {
             auto const ks = static_cast<std::size_t>(k);
-            return ff.at(ks, static_cast<std::size_t>(s)) < ff.at(ks, static_cast<std::size_t>(t));
+            return ff.at(ks, static_cast<std::size_t>(s)) < ff.at(ks, static_cast<std::size_t>(t)) - eps;
         });
     };
 

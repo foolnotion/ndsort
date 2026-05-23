@@ -57,7 +57,12 @@ All sorters share the same signature:
 auto operator()(population, double eps = 0.0, Proj proj = {}) -> ndsort::fronts;
 ```
 
-`eps` enables ε-dominance (`a[k] <= b[k] + eps` for all k).
+`eps` enables additive ε-dominance (`a < b` iff `b - a > eps` per objective).
+Implemented in the dominance comparison logic of: `deductive_sorter`, `hierarchical_sorter`,
+`efficient_binary_sorter`, `efficient_sequential_sorter`, `best_order_sorter`.
+`merge_sorter` and `rank_intersect_sorter` accept `eps` for API uniformity but have no effect —
+their dominance is implicit in the objective-wise sort order and cannot be patched per-comparison.
+
 `proj` is a projection applied to each element before extracting its fitness vector,
 useful when the population holds structs rather than raw vectors:
 

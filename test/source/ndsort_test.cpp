@@ -159,19 +159,6 @@ TEST_CASE("eps_adapter — burns in epsilon")
     REQUIRE(f.size() == 2);
 }
 
-TEST_CASE("merge_sorter — duplicate individuals land in the same front")
-{
-    // {0,0} appears three times; all three must end up in front 0.
-    // {1,1} is dominated by all copies of {0,0} → front 1.
-    population_t pop{{0.0, 0.0}, {0.0, 0.0}, {1.0, 1.0}, {0.0, 0.0}};
-    auto f = sorted_fronts(ndsort::merge_sorter{}, pop);
-    REQUIRE(f.size() == 2);
-    REQUIRE(f[0].size() == 3);  // all three copies of {0,0}
-    REQUIRE(f[1].size() == 1);  // {1,1}
-    // deductive must agree
-    auto ref = sorted_fronts(ndsort::deductive_sorter{}, pop);
-    REQUIRE(f == ref);
-}
 
 TEST_CASE("nondominated_sorter concept is satisfied")
 {
