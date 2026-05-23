@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <numeric>
@@ -85,6 +86,51 @@ inline auto reindex(flat_fitness const& ff, std::vector<std::size_t> const& perm
         }
     }
     return result;
+}
+
+// Result of eps-aware deduplication of a lex-sorted flat_fitness.
+// ff holds only unique representatives; canonical[i] is the index in ff of
+// the representative for original lex-sorted index i.
+struct dedup_result {
+    flat_fitness             ff;
+    std::vector<std::size_t> canonical;
+};
+
+// Group eps-close solutions in a lex-sorted flat_fitness.
+// Two adjacent solutions are considered equal if |a[k] - b[k]| <= eps for all k.
+// Each group is represented by its first member (the lex-smallest).
+// Takes ff by value so callers can move temporaries in without an extra copy.
+inline auto eps_dedup(flat_fitness ff, double eps) -> dedup_result
+{
+    auto const n = ff.n;
+    auto const m = ff.m;
+
+    std::vector<std::size_t> canonical(n);
+    std::vector<std::size_t> unique_idx;
+    unique_idx.reserve(n);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        bool is_dup = !unique_idx.empty();
+        for (std::size_t k = 0; k < m && is_dup; ++k) {
+            is_dup = std::abs(ff.at(k, i) - ff.at(k, unique_idx.back())) <= eps;
+        }
+        canonical[i] = is_dup ? unique_idx.size() - 1 : unique_idx.size();
+        if (!is_dup) { unique_idx.push_back(i); }
+    }
+
+    auto const nu = unique_idx.size();
+    if (nu == n) { return {std::move(ff), std::move(canonical)}; }
+
+    flat_fitness uq;
+    uq.n = nu;
+    uq.m = m;
+    uq.data.resize(nu * m);
+    for (std::size_t k = 0; k < m; ++k) {
+        for (std::size_t j = 0; j < nu; ++j) {
+            uq.data[k * nu + j] = ff.at(k, unique_idx[j]);
+        }
+    }
+    return {std::move(uq), std::move(canonical)};
 }
 
 // Dispatch on the number of objectives at compile time for m = 1..5,

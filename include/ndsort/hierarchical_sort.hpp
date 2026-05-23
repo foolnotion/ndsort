@@ -15,14 +15,19 @@ struct NDSORT_EXPORT hierarchical_sorter {
         requires population<P, Proj>
     auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts
     {
-        auto ff        = detail::flatten(std::forward<P>(pop), proj);
-        auto const perm = detail::lex_perm(ff);
-        auto const sff  = detail::reindex(ff, perm);
-        auto result    = sort_impl(sff, eps);
-        for (auto& front : result) {
-            for (auto& idx : front) { idx = perm[idx]; }
+        auto ff          = detail::flatten(std::forward<P>(pop), proj);
+        auto const perm  = detail::lex_perm(ff);
+        auto [uff, canonical] = detail::eps_dedup(detail::reindex(ff, perm), eps);
+        auto result      = sort_impl(uff, eps);
+        std::vector<std::size_t> urank(uff.n);
+        for (std::size_t f = 0; f < result.size(); ++f) {
+            for (auto j : result[f]) { urank[j] = f; }
         }
-        return result;
+        fronts expanded(result.size());
+        for (std::size_t i = 0; i < ff.n; ++i) {
+            expanded[urank[canonical[i]]].push_back(perm[i]);
+        }
+        return expanded;
     }
 
     template<typename P, typename Proj = std::identity>
