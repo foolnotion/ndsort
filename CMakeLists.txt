@@ -5,8 +5,8 @@ include(cmake/prelude.cmake)
 project(
     ndsort
     VERSION 0.1.0
-    DESCRIPTION "Short description"
-    HOMEPAGE_URL "https://example.com/"
+    DESCRIPTION "Generic C++20 non-dominated sorting library"
+    HOMEPAGE_URL "https://github.com/foolnotion/ndsort"
     LANGUAGES CXX
 )
 
@@ -17,7 +17,12 @@ include(cmake/variables.cmake)
 
 add_library(
     ndsort_ndsort
-    source/ndsort.cpp
+    source/best_order_sort.cpp
+    source/deductive.cpp
+    source/efficient_sort.cpp
+    source/hierarchical_sort.cpp
+    source/merge_sort.cpp
+    source/rank_intersect.cpp
 )
 add_library(ndsort::ndsort ALIAS ndsort_ndsort)
 
@@ -46,19 +51,30 @@ set_target_properties(
 target_include_directories(
     ndsort_ndsort ${warning_guard}
     PUBLIC
-    "\$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
 )
 
 target_include_directories(
     ndsort_ndsort SYSTEM
     PUBLIC
-    "\$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/export>"
+    "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/export>"
 )
 
 target_compile_features(ndsort_ndsort PUBLIC cxx_std_20)
 
-find_package(fmt REQUIRED)
-target_link_libraries(ndsort_ndsort PRIVATE fmt::fmt)
+# EVE is a header-only SIMD library; link PRIVATE so its includes don't
+# propagate to consumers of ndsort.
+find_package(eve CONFIG REQUIRED)
+target_link_libraries(ndsort_ndsort PRIVATE eve::eve)
+
+# rank_intersect.cpp and merge_sort.cpp use EVE SIMD intrinsics — require at least x86-64-v3.
+# Consumers do not inherit this flag; it only applies to the compiled .cpp files.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  set_source_files_properties(
+      source/rank_intersect.cpp source/merge_sort.cpp
+      PROPERTIES COMPILE_FLAGS "-march=x86-64-v3"
+  )
+endif()
 
 # ---- Install rules ----
 

@@ -3,8 +3,8 @@
   "version-semver": "0.1.0",
   "dependencies": [
     {
-      "name": "fmt",
-      "version>=": "11.0.2#1"
+      "name": "eve",
+      "version>=": "2023.02.15"
     }
   ],
   "default-features": [],
@@ -15,6 +15,15 @@
         {
           "name": "catch2",
           "version>=": "3.7.1"
+        }
+      ]
+    },
+    "bench": {
+      "description": "Dependencies for benchmarks",
+      "dependencies": [
+        {
+          "name": "nanobench",
+          "version>=": "4.3.11"
         }
       ]
     }
