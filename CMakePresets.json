@@ -134,13 +134,17 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Sanitize",
         "CMAKE_CXX_FLAGS_SANITIZE": "-U_FORTIFY_SOURCE -O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common",
-        "CMAKE_MAP_IMPORTED_CONFIG_SANITIZE": "Sanitize;RelWithDebInfo;Release;Debug;"
+        "CMAKE_MAP_IMPORTED_CONFIG_SANITIZE": "Sanitize;RelWithDebInfo;Release;Debug;",
+        "BUILD_BENCHMARKS": "OFF"
       }
     },
     {
       "name": "ci-build",
       "binaryDir": "${sourceDir}/build",
-      "hidden": true
+      "hidden": true,
+      "cacheVariables": {
+        "BUILD_BENCHMARKS": "OFF"
+      }
     },
     {
       "name": "ci-multi-config",
