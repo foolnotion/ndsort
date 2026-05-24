@@ -40,7 +40,7 @@ auto sorted_fronts(S const& sorter, population_t const& pop, double eps = 0.0) -
 
 } // namespace
 
-TEST_CASE("deductive sorter — trivial cases")
+TEST_CASE("deductive sorter - trivial cases")
 {
     ndsort::deductive_sorter sorter;
 
@@ -70,7 +70,7 @@ TEST_CASE("deductive sorter — trivial cases")
     }
 }
 
-TEST_CASE("all sorters agree with deductive — 2 objectives")
+TEST_CASE("all sorters agree with deductive - 2 objectives")
 {
     auto const [n, seed] = GENERATE(
         std::pair { 100UZ, 42UL }, std::pair { 500UZ, 1UL }, std::pair { 1000UZ, 123UL });
@@ -104,7 +104,7 @@ TEST_CASE("all sorters agree with deductive — 2 objectives")
     }
 }
 
-TEST_CASE("all sorters agree with deductive — multiple objectives")
+TEST_CASE("all sorters agree with deductive - multiple objectives")
 {
     auto const [n, m, seed] = GENERATE(
         std::tuple { 200UZ, 3UZ, 1UL },
@@ -141,7 +141,7 @@ TEST_CASE("all sorters agree with deductive — multiple objectives")
     }
 }
 
-TEST_CASE("all sorters agree — eps-dedup places near-duplicates in same front")
+TEST_CASE("all sorters agree - eps-dedup places near-duplicates in same front")
 {
     // {0,0} and {0.005,0.005} differ by 0.005 < eps=0.01 on both objectives.
     // Both are clearly better than {1,1} (diff ~1.0 >> eps).
@@ -178,7 +178,7 @@ TEST_CASE("all sorters agree — eps-dedup places near-duplicates in same front"
     }
 }
 
-TEST_CASE("projection — sort structs with member fitness")
+TEST_CASE("projection - sort structs with member fitness")
 {
     struct individual {
         std::vector<double> fitness;
@@ -198,7 +198,7 @@ TEST_CASE("projection — sort structs with member fitness")
     REQUIRE(f[1][0] == 3);
 }
 
-TEST_CASE("eps_adapter — burns in epsilon")
+TEST_CASE("eps_adapter - burns in epsilon")
 {
     population_t pop { { 0.0, 0.0 }, { 0.0001, 0.0001 }, { 1.0, 1.0 } };
 
@@ -225,7 +225,7 @@ TEST_CASE("nondominated_sorter concept is satisfied")
     SUCCEED();
 }
 
-TEST_CASE("edge cases — empty, single individual, single objective")
+TEST_CASE("edge cases - empty, single individual, single objective")
 {
     ndsort::deductive_sorter sorter;
 
@@ -254,7 +254,7 @@ TEST_CASE("edge cases — empty, single individual, single objective")
     }
 }
 
-TEST_CASE("fronts partition — every individual appears exactly once")
+TEST_CASE("fronts partition - every individual appears exactly once")
 {
     auto const [n, m, seed] = GENERATE(
         std::tuple { 100UZ, 2UZ, 7UL },
@@ -274,7 +274,7 @@ TEST_CASE("fronts partition — every individual appears exactly once")
     REQUIRE(std::ranges::all_of(seen, [](bool b) { return b; }));
 }
 
-TEST_CASE("all sorters agree — large m (dispatch fallback path)")
+TEST_CASE("all sorters agree - large m (dispatch fallback path)")
 {
     // m=9 exceeds dispatch_on_m's compile-time cases, exercising the runtime fallback.
     auto const pop = make_population(100, 9, 42);
@@ -348,7 +348,7 @@ TEST_CASE("presorted overload produces same result as default overload")
     }
 }
 
-TEST_CASE("presorted + duplicates — identical solutions go in same front")
+TEST_CASE("presorted + duplicates - identical solutions go in same front")
 {
     // Input already in lex order; contains exact duplicates.
     // Presorted overloads must dedup and not push duplicates to later fronts.
@@ -370,7 +370,7 @@ TEST_CASE("presorted + duplicates — identical solutions go in same front")
     SECTION("deductive_sorter") { check(ndsort::deductive_sorter {}); }
 }
 
-TEST_CASE("best_order_sort — eps on 3 objectives")
+TEST_CASE("best_order_sort - eps on 3 objectives")
 {
     // Two solutions that are eps-close on all 3 objectives should end up in the same front.
     population_t pop {
