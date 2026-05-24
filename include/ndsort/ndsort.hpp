@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ndsort/adapters/eps_adapter.hpp"
 #include "ndsort/best_order_sort.hpp"
 #include "ndsort/concepts.hpp"
 #include "ndsort/deductive.hpp"
@@ -11,4 +12,3 @@
 #include "ndsort/merge_sort.hpp"
 #include "ndsort/rank_intersect.hpp"
 #include "ndsort/traits.hpp"
-#include "ndsort/adapters/eps_adapter.hpp"

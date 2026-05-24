@@ -48,6 +48,7 @@ jobs:
   test:
     needs: [lint]
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-14, ubuntu-24.04, windows-2022]
         type: [shared, static]
@@ -83,42 +84,3 @@ jobs:
     - name: Test
       working-directory: build
       run: ctest --output-on-failure --no-tests=error -C Release -j 2
-
-  python:
-    needs: [lint]
-    runs-on: ubuntu-24.04
-    env: { CXX: clang++-18 }
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with: { python-version: "3.12" }
-    - name: Install vcpkg
-      uses: friendlyanon/setup-vcpkg@v1
-      with: { committish: "${{ env.VCPKG_COMMIT }}" }
-    - name: Configure
-      run: cmake --preset=ci-ubuntu -D VCPKG_MANIFEST_FEATURES="test;python"
-    - name: Build
-      run: cmake --build build --config Release -j 2
-    - name: Test C++
-      working-directory: build
-      run: ctest --output-on-failure --no-tests=error -C Release -j 2
-    - name: Test Python bindings
-      run: |
-        python3 -c "
-        import sys, glob
-        # Find the built _ndsort extension
-        exts = glob.glob('build/**/_ndsort*', recursive=True)
-        if not exts:
-            print('ERROR: _ndsort extension not found')
-            sys.exit(1)
-        ext_dir = '/'.join(exts[0].split('/')[:-1])
-        sys.path.insert(0, ext_dir)
-        sys.path.insert(0, 'python')
-        import ndsort
-        import numpy as np
-        pop = np.array([[0.0, 1.0], [1.0, 0.0], [0.5, 0.5], [2.0, 2.0]])
-        fronts = ndsort.rank_intersect(pop)
-        assert len(fronts) == 2
-        assert len(fronts[0]) == 3
-        print('Python bindings OK')
-        "

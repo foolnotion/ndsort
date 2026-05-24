@@ -5,12 +5,14 @@ namespace ndsort {
 // Traits struct for non-dominated sorters.
 // Specialise for a concrete sorter type to advertise its properties.
 // Adapters query these at compile time to select optimal strategies.
-template<typename S>
+template <typename S>
 struct sorter_traits {
     // Whether this sorter's per-objective passes are independent and can run in parallel.
     static constexpr bool parallel_objectives = false;
 
-    // Whether this sorter requires the population to be lexicographically sorted before calling.
+    // Whether this sorter's underlying algorithm requires lex-sorted input.
+    // The default operator() satisfies this internally; pass presorted_t to skip that step
+    // when the caller has already sorted the population.
     static constexpr bool requires_sorted_input = false;
 
     // Whether this sorter produces results identical to DeductiveSorter on all inputs.
@@ -21,6 +23,6 @@ struct sorter_traits {
 // that the population is already in lexicographic fitness order.  Sorters that
 // internally pre-sort will skip that step.
 struct presorted_t {};
-inline constexpr presorted_t presorted{};
+inline constexpr presorted_t presorted {};
 
 } // namespace ndsort
