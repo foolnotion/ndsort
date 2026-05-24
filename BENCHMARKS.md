@@ -16,7 +16,7 @@ The fastest sorter per row is **bold**. Entries with >2 % MAPE are marked \*.
 | `merge` | Merge NDS (MNDS) | O(N log N) best / O(MN²) | [Moreno et al., IEEE TCYB 2020](https://doi.org/10.1109/TCYB.2020.2968301) |
 | `hierarchical` | Hierarchical NDS (HNDS) | O(MN√N) best / O(MN²) | [Bao et al., J. Comput. Sci. 2017](https://doi.org/10.1016/j.jocs.2017.09.015) |
 | `best_order` | Best Order Sort (BOS) | O(MN log N) best / O(MN²) | [Roy et al., GECCO 2016](https://doi.org/10.1145/2908961.2931684) |
-| `dom_degree` | Dominance degree sort — degree matrix + NSGA-II sweep | O(MN²) | [Mishra et al. 2016](https://doi.org/10.1145/2908961.2931684) |
+| `dom_degree` | Dominance degree sort — degree matrix + NSGA-II sweep | O(MN²) | [Zhou et al., IEEE TEC 2017](https://doi.org/10.1109/TEVC.2016.2567648) |
 | `rank_ordinal` | Rank-ordinal sort — per-objective stable permutations, SIMD dominated check | O(MN log N + N²) | — |
 | `eff_binary` | ENS-BS — efficient NDS, binary search (requires lex-sorted input) | O(MN log N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |
 | `eff_seq` | ENS-SS — efficient NDS, sequential search (requires lex-sorted input) | O(MN√N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |

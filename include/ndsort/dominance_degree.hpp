@@ -14,6 +14,8 @@ namespace ndsort {
 // then reads dominance directly from D[i][j] == m.
 // Front extraction uses the standard NSGA-II dominated-count sweep: O(n²) total,
 // not O(n²) per front as in naïve implementations.
+// Note: the degree matrix requires O(N²) memory (~4 N² bytes). For N=10000 that
+// is ~400 MB; prefer rank_intersect_sorter or merge_sorter for large populations.
 struct NDSORT_EXPORT dominance_degree_sorter {
     template <typename P, typename Proj = std::identity>
         requires population<P, Proj>
