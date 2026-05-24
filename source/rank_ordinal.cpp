@@ -123,7 +123,7 @@ auto rank_ordinal_sorter::sort_impl(detail::flat_fitness<T> const& ff) const -> 
     return rank_ordinal_impl(ff);
 }
 
-template auto rank_ordinal_sorter::sort_impl<float>(detail::flat_fitness<float> const&) const -> fronts;
-template auto rank_ordinal_sorter::sort_impl<double>(detail::flat_fitness<double> const&) const -> fronts;
+template NDSORT_EXPORT auto rank_ordinal_sorter::sort_impl<float>(detail::flat_fitness<float> const&) const -> fronts;
+template NDSORT_EXPORT auto rank_ordinal_sorter::sort_impl<double>(detail::flat_fitness<double> const&) const -> fronts;
 
 } // namespace ndsort

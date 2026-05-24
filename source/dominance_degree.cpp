@@ -105,7 +105,7 @@ auto dominance_degree_sorter::sort_impl(detail::flat_fitness<T> const& ff, doubl
     return result;
 }
 
-template auto dominance_degree_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
-template auto dominance_degree_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
+template NDSORT_EXPORT auto dominance_degree_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto dominance_degree_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
 
 } // namespace ndsort
