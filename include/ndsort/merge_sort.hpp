@@ -13,33 +13,34 @@ namespace ndsort {
 // Uses incremental bitset intersection keyed on sorted objective orderings.
 // Efficient for low-to-mid objective counts.
 struct NDSORT_EXPORT merge_sorter {
-    template<typename P, typename Proj = std::identity>
+    template <typename P, typename Proj = std::identity>
         requires population<P, Proj>
     auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts
     {
         return detail::sort_with_dedup(
-            [this](detail::flat_fitness const& ff, double e) { return sort_impl(ff, e); },
+            [this](auto const& ff, double e) { return sort_impl(ff, e); },
             std::forward<P>(pop), eps, proj);
     }
 
-    template<typename P, typename Proj = std::identity>
+    template <typename P, typename Proj = std::identity>
         requires population<P, Proj>
     auto operator()(P&& pop, double eps, Proj proj, presorted_t) const -> fronts
     {
         return detail::sort_presorted_with_dedup(
-            [this](detail::flat_fitness const& ff, double e) { return sort_impl(ff, e); },
+            [this](auto const& ff, double e) { return sort_impl(ff, e); },
             std::forward<P>(pop), eps, proj);
     }
 
 private:
-    auto sort_impl(detail::flat_fitness const&, double eps) const -> fronts;
+    template <typename T>
+    auto sort_impl(detail::flat_fitness<T> const&, double eps) const -> fronts;
 };
 
-template<>
+template <>
 struct sorter_traits<merge_sorter> {
-    static constexpr bool parallel_objectives  = false;
+    static constexpr bool parallel_objectives = false;
     static constexpr bool requires_sorted_input = true;
-    static constexpr bool is_exact              = true;
+    static constexpr bool is_exact = true;
 };
 
 } // namespace ndsort
