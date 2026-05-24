@@ -68,9 +68,9 @@ auto efficient_sequential_sorter::sort_impl(detail::flat_fitness<T> const& ff, d
     return ens_sort_impl<ens_strategy::sequential>(ff, eps);
 }
 
-template auto efficient_binary_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
-template auto efficient_binary_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
-template auto efficient_sequential_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
-template auto efficient_sequential_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
+template NDSORT_EXPORT auto efficient_binary_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto efficient_binary_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
+template NDSORT_EXPORT auto efficient_sequential_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto efficient_sequential_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
 
 } // namespace ndsort

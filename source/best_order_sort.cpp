@@ -126,7 +126,7 @@ auto best_order_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps)
     return result;
 }
 
-template auto best_order_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
-template auto best_order_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
+template NDSORT_EXPORT auto best_order_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto best_order_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
 
 } // namespace ndsort

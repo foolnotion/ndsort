@@ -98,7 +98,7 @@ auto deductive_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) 
     return sort_impl_dispatch(ff, eps);
 }
 
-template auto deductive_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
-template auto deductive_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
+template NDSORT_EXPORT auto deductive_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto deductive_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
 
 } // namespace ndsort

@@ -247,7 +247,7 @@ auto merge_sorter::sort_impl(detail::flat_fitness<T> const& ff, double) const ->
     return merge_sort_impl(ff);
 }
 
-template auto merge_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
-template auto merge_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
+template NDSORT_EXPORT auto merge_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto merge_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
 
 } // namespace ndsort
