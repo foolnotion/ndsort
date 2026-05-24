@@ -83,7 +83,10 @@ jobs:
       run: cmake --install build --config Release --prefix prefix
     - name: Test
       working-directory: build
-      run: ctest --output-on-failure --no-tests=error -C Release -j 2
+      shell: pwsh
+      run: |
+        if ($IsWindows) { chcp 65001 | Out-Null }
+        ctest --output-on-failure --no-tests=error -C Release -j 2
 
   python:
     needs: [lint]
