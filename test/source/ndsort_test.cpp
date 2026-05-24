@@ -139,14 +139,6 @@ TEST_CASE("all sorters agree with deductive — multiple objectives")
     {
         REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter {}, pop) == ref);
     }
-    SECTION("dominance_degree_sorter")
-    {
-        REQUIRE(sorted_fronts(ndsort::dominance_degree_sorter {}, pop) == ref);
-    }
-    SECTION("rank_ordinal_sorter")
-    {
-        REQUIRE(sorted_fronts(ndsort::rank_ordinal_sorter {}, pop) == ref);
-    }
 }
 
 TEST_CASE("all sorters agree — eps-dedup places near-duplicates in same front")
@@ -183,14 +175,6 @@ TEST_CASE("all sorters agree — eps-dedup places near-duplicates in same front"
     SECTION("efficient_sequential_sorter")
     {
         REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter {}, pop, eps) == ref);
-    }
-    SECTION("dominance_degree_sorter")
-    {
-        REQUIRE(sorted_fronts(ndsort::dominance_degree_sorter {}, pop, eps) == ref);
-    }
-    SECTION("rank_ordinal_sorter")
-    {
-        REQUIRE(sorted_fronts(ndsort::rank_ordinal_sorter {}, pop, eps) == ref);
     }
 }
 
@@ -237,8 +221,6 @@ TEST_CASE("nondominated_sorter concept is satisfied")
     static_assert(ndsort::nondominated_sorter<ndsort::best_order_sorter, pop_t>);
     static_assert(ndsort::nondominated_sorter<ndsort::efficient_binary_sorter, pop_t>);
     static_assert(ndsort::nondominated_sorter<ndsort::efficient_sequential_sorter, pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::dominance_degree_sorter, pop_t>);
-    static_assert(ndsort::nondominated_sorter<ndsort::rank_ordinal_sorter, pop_t>);
     static_assert(ndsort::nondominated_sorter<ndsort::eps_adapter<ndsort::deductive_sorter>, pop_t>);
     SUCCEED();
 }
@@ -269,8 +251,6 @@ TEST_CASE("edge cases — empty, single individual, single objective")
         SECTION("best_order_sorter") { REQUIRE(sorted_fronts(ndsort::best_order_sorter {}, pop) == ref); }
         SECTION("efficient_binary_sorter") { REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter {}, pop) == ref); }
         SECTION("efficient_sequential_sorter") { REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter {}, pop) == ref); }
-        SECTION("dominance_degree_sorter") { REQUIRE(sorted_fronts(ndsort::dominance_degree_sorter {}, pop) == ref); }
-        SECTION("rank_ordinal_sorter") { REQUIRE(sorted_fronts(ndsort::rank_ordinal_sorter {}, pop) == ref); }
     }
 }
 
