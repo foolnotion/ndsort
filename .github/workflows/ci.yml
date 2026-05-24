@@ -22,7 +22,7 @@ jobs:
     - name: Spell check
       if: always()
       run: |
-        nix run nixpkgs#python312Packages.codespell -- \
+        nix run nixpkgs#codespell -- \
           --config .codespellrc
 
   sanitize:
