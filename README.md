@@ -11,6 +11,8 @@ A generic C++20 library of non-dominated sorting algorithms for multi-objective 
 | `merge_sorter` | Merge NDS (MNDS) | O(N log N) best / O(MN²) | [Moreno et al., IEEE TCYB 2020](https://doi.org/10.1109/TCYB.2020.2968301) |
 | `hierarchical_sorter` | Hierarchical NDS (HNDS) | O(MN√N) best / O(MN²) | [Bao et al., J. Comput. Sci. 2017](https://doi.org/10.1016/j.jocs.2017.09.015) |
 | `best_order_sorter` | Best Order Sort (BOS) | O(MN log N) best / O(MN²) | [Roy et al., GECCO 2016](https://doi.org/10.1145/2908961.2931684) |
+| `dominance_degree_sorter` | Dominance degree sort | O(MN²) | [Zhou et al., IEEE TEC 2017](https://doi.org/10.1109/TEVC.2016.2567648) |
+| `rank_ordinal_sorter` | Rank-ordinal sort | O(MN log N + N²) | [Burlacu, arXiv 2022](https://arxiv.org/abs/2203.13654) |
 | `efficient_binary_sorter` | ENS-BS | O(MN log N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |
 | `efficient_sequential_sorter` | ENS-SS | O(MN√N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |
 
@@ -32,6 +34,21 @@ the SIMD intersection (via [EVE](https://github.com/jfalcou/eve)) are standard t
 applied in service of this push-based rank propagation.
 The rankset intersection mechanism is the novel claim; see the
 [arXiv preprint](https://arxiv.org/abs/2203.13654) for details.
+
+### rank_ordinal_sorter
+
+Applies the same push-based rank update idea without the O(N²) bitset storage.
+Instead of bitsets, it builds per-objective stable permutations and assigns each
+individual an ordinal rank in each objective's sorted order — a compact O(MN)
+representation.
+For each individual i (visited in objective-0 order), it pushes rank increments
+only to individuals that appear *after* i's worst-objective ordinal position,
+pruning the candidate set without a bitset scan.
+The dominated check over the M-element ordinal rank slices is vectorised with EVE.
+
+The result is competitive with `rank_intersect_sorter` on low-to-mid-M workloads
+and uses O(MN) working memory instead of O(N²/64) bitsets — preferable when N is
+large and memory pressure matters.
 
 ## Usage
 
