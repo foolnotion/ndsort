@@ -19,10 +19,12 @@ add_library(
     ndsort_ndsort
     source/best_order_sort.cpp
     source/deductive.cpp
+    source/dominance_degree.cpp
     source/efficient_sort.cpp
     source/hierarchical_sort.cpp
     source/merge_sort.cpp
     source/rank_intersect.cpp
+    source/rank_ordinal.cpp
 )
 add_library(ndsort::ndsort ALIAS ndsort_ndsort)
 
@@ -67,12 +69,12 @@ target_compile_features(ndsort_ndsort PUBLIC cxx_std_20)
 find_package(eve CONFIG REQUIRED)
 target_link_libraries(ndsort_ndsort PRIVATE eve::eve)
 
-# rank_intersect.cpp and merge_sort.cpp use EVE SIMD intrinsics — require at least x86-64-v3.
+# These files use EVE SIMD intrinsics — require at least x86-64-v3.
 # Consumers do not inherit this flag; it only applies to the compiled .cpp files.
 # The march flag is x86-only; ARM (Apple Silicon, aarch64) uses NEON natively.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
   set_source_files_properties(
-      source/rank_intersect.cpp source/merge_sort.cpp
+      source/rank_intersect.cpp source/merge_sort.cpp source/rank_ordinal.cpp
       PROPERTIES COMPILE_FLAGS "-march=x86-64-v3"
   )
 endif()
