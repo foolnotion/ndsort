@@ -25,7 +25,7 @@ target_link_libraries(
 )
 target_compile_features(ndsort_test PRIVATE cxx_std_20)
 
-add_test(NAME ndsort_test COMMAND ndsort_test)
+catch_discover_tests(ndsort_test)
 
 # ---- End-of-file commands ----
 
