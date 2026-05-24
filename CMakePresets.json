@@ -104,6 +104,7 @@
       "inherits": ["flags-msvc", "ci-std"],
       "generator": "Visual Studio 17 2022",
       "architecture": "x64",
+      "toolset": "ClangCL",
       "hidden": true
     },
     {
@@ -164,7 +165,10 @@
     },
     {
       "name": "ci-windows",
-      "inherits": ["ci-build", "ci-win64", "dev-mode", "ci-multi-config", "vcpkg", "vcpkg-win64-static"]
+      "inherits": ["ci-build", "ci-win64", "dev-mode", "ci-multi-config", "vcpkg", "vcpkg-win64-static"],
+      "cacheVariables": {
+        "VCPKG_INSTALL_OPTIONS": "--allow-unsupported"
+      }
     }
   ]
 }
