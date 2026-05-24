@@ -40,6 +40,8 @@ SORTERS = [
     "merge",
     "hierarchical",
     "best_order",
+    "dominance_degree",
+    "rank_ordinal",
     "efficient_binary",
     "efficient_sequential",
 ]
@@ -51,6 +53,8 @@ DISPLAY = {
     "merge":                "merge",
     "hierarchical":         "hierarchical",
     "best_order":           r"best\_order",
+    "dominance_degree":     r"dom\_degree",
+    "rank_ordinal":         r"rank\_ordinal",
     "efficient_binary":     r"eff\_binary",
     "efficient_sequential": r"eff\_seq",
 }
@@ -82,6 +86,8 @@ SORTER_TABLE = """\
 | `merge` | Merge NDS (MNDS) | O(N log N) best / O(MN²) | [Moreno et al., IEEE TCYB 2020](https://doi.org/10.1109/TCYB.2020.2968301) |
 | `hierarchical` | Hierarchical NDS (HNDS) | O(MN√N) best / O(MN²) | [Bao et al., J. Comput. Sci. 2017](https://doi.org/10.1016/j.jocs.2017.09.015) |
 | `best_order` | Best Order Sort (BOS) | O(MN log N) best / O(MN²) | [Roy et al., GECCO 2016](https://doi.org/10.1145/2908961.2931684) |
+| `dom_degree` | Dominance degree sort | O(MN²) | [Zhou et al., IEEE TEC 2017](https://doi.org/10.1109/TEVC.2016.2567648) |
+| `rank_ordinal` | Rank-ordinal sort | O(MN log N + N²) | [Burlacu, arXiv 2022](https://arxiv.org/abs/2203.13654) |
 | `eff_binary` | ENS-BS — efficient NDS, binary search (requires lex-sorted input) | O(MN log N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |
 | `eff_seq` | ENS-SS — efficient NDS, sequential search (requires lex-sorted input) | O(MN√N) best / O(MN²) | [Zhang et al., IEEE TEC 2015](https://doi.org/10.1109/TEVC.2014.2308305) |"""
 
