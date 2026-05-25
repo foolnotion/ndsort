@@ -3,12 +3,29 @@
 #include "ndsort/dominance_degree.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
+#include <cstdint>
 #include <numeric>
+#include <type_traits>
 #include <vector>
 
 namespace ndsort {
 namespace {
+
+    // Exact bitwise equality — avoids -Wfloat-equal while making the intent clear:
+    // we are detecting group boundaries in a sorted sequence, not checking numerical closeness.
+    template <typename T>
+    [[nodiscard]] auto bit_equal(T a, T b) noexcept -> bool
+    {
+        if constexpr (std::is_integral_v<T>) {
+            return a == b;
+        } else if constexpr (sizeof(T) == 4) {
+            return std::bit_cast<std::uint32_t>(a) == std::bit_cast<std::uint32_t>(b);
+        } else {
+            return std::bit_cast<std::uint64_t>(a) == std::bit_cast<std::uint64_t>(b);
+        }
+    }
 
     template <typename T>
     auto build_degree_matrix(detail::flat_fitness<T> const& ff) -> std::vector<int>
@@ -31,7 +48,7 @@ namespace {
             // is ≤ every individual from the group start onward (symmetric within the group).
             std::size_t g = 0; // start of current equal-value group
             for (std::size_t i = 0; i < n; ++i) {
-                if (i > 0 && ff.at(k, idx[i]) != ff.at(k, idx[i - 1])) {
+                if (i > 0 && !bit_equal(ff.at(k, idx[i]), ff.at(k, idx[i - 1]))) {
                     g = i;
                 }
                 // idx[i] ≤ idx[j] for all j in [g, n):
