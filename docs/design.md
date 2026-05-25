@@ -163,26 +163,25 @@ It has no dependency beyond the C++20 standard library.
 ### Split sorter pattern
 
 Each sorter has:
-- A **public header** with the templated `operator()` that calls `detail::flatten`
-  and then delegates to a non-templated `sort_impl`.
+- A **public header** declaring a struct that inherits from `detail::sorter_base<Derived>`.
+  The CRTP base provides all three `operator()` overloads (default, `presorted_t`, `sorted_unique_t`),
+  delegating to the derived class's private `sort_impl`.
 - A **compiled `.cpp`** that defines `sort_impl` and freely includes EVE,
   bitset machinery, or any other heavy implementation header.
 
 ```cpp
 // include/ndsort/rank_intersect.hpp
-#include <ndsort/detail/flat_fitness.hpp>
+#include <ndsort/detail/sorter_base.hpp>
 
 namespace ndsort {
 
-struct RankIntersect {
-    template<Population<Proj> P, typename Proj = std::identity>
-    auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> Fronts {
-        return sort_impl(detail::flatten(pop, eps, proj), eps);
-    }
-
+struct NDSORT_EXPORT rank_intersect_sorter : detail::sorter_base<rank_intersect_sorter> {
 private:
     // Defined in rank_intersect.cpp — EVE never leaks into this header.
-    auto sort_impl(detail::FlatFitness const&, double eps) const -> Fronts;
+    template <typename T>
+    auto sort_impl(detail::flat_fitness<T> const&, double eps) const -> fronts;
+
+    friend struct detail::sorter_base<rank_intersect_sorter>;
 };
 
 } // namespace ndsort
@@ -236,7 +235,7 @@ on the key type.
 
 ## Sorter interface
 
-Each sorter is a stateless struct with a single templated call operator.
+Each sorter is a stateless struct with a templated call operator.
 The full signature:
 
 ```cpp
@@ -247,6 +246,24 @@ auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> Fronts;
 `flatten` is called exactly once inside `operator()`, so the input range is traversed
 once regardless of projection cost. Everything after that is integer arithmetic on the
 canonical buffer.
+
+### Tag dispatch
+
+All sorters provide three `operator()` overloads selected by an optional trailing tag:
+
+```cpp
+// Full pipeline: lex-sort, eps-dedup, sort, expand indices.
+auto f = sorter(pop, eps, proj);                     // or just sorter(pop)
+
+// Presorted: skip lex-sort, still run eps-dedup.
+auto f = sorter(pop, eps, proj, ndsort::presorted);
+
+// Sorted-unique: skip both lex-sort and eps-dedup — fastest path.
+auto f = sorter(pop, eps, proj, ndsort::sorted_unique);
+```
+
+The boilerplate is provided once by a CRTP base (`detail::sorter_base<Derived>`);
+each concrete sorter only implements a private `sort_impl(flat_fitness<T> const&, double eps)` method.
 
 ### Provided sorters
 
@@ -318,7 +335,7 @@ via a trait `sorter_traits<S>::parallel_objectives`.
 
 ## Sorter traits
 
-Inspired by `cppsort::sorter_traits`. Each sorter specialises a traits struct to
+Inspired by `cpp-sort::sorter_traits`. Each sorter specialises a traits struct to
 advertise its properties. Adapters query these at compile time.
 
 ```cpp
@@ -326,21 +343,16 @@ namespace ndsort {
 
 template<typename S>
 struct sorter_traits {
-    // whether the sorter's per-objective passes can run independently
     static constexpr bool parallel_objectives = false;
-    // whether the sorter requires a sorted (lexicographic) input
     static constexpr bool requires_sorted_input = false;
-    // whether the sorter is exact (agrees with DeductiveSorter on all inputs)
     static constexpr bool is_exact = true;
 };
 
-// specialisation example
-template<>
-struct sorter_traits<RankIntersect> {
-    static constexpr bool parallel_objectives = true;
-    static constexpr bool requires_sorted_input = true;
-    static constexpr bool is_exact = true;
-};
+// Tag types for preprocessing control:
+struct presorted_t {};       // input is lex-sorted, may have duplicates
+inline constexpr presorted_t presorted {};
+struct sorted_unique_t {};   // input is lex-sorted AND deduplicated
+inline constexpr sorted_unique_t sorted_unique {};
 
 } // namespace ndsort
 ```
@@ -359,8 +371,8 @@ inline constexpr auto fitness_proj = [](Operon::Individual const& ind)
         return { ind.Fitness.data(), ind.Fitness.size() };
     };
 
-// NSGA2::Sort becomes:
-fronts_ = (*sorter_)(uniq, eps, fitness_proj);
+// NSGA2 already stable_partitions duplicates before ranking, so use sorted_unique.
+fronts_ = (*sorter_)(uniq, eps, fitness_proj, ndsort::sorted_unique);
 ```
 
 The virtual `NondominatedSorterBase` can be kept temporarily as a compatibility shim
@@ -391,7 +403,8 @@ ndsort/
 │       │   ├── eps_adapter.hpp
 │       │   └── cached_adapter.hpp
 │       └── detail/
-│           └── flat_fitness.hpp    # FlatFitness + flatten<>; stdlib-only
+│           ├── flat_fitness.hpp    # FlatFitness + flatten<>; stdlib-only
+│           └── sorter_base.hpp    # CRTP base providing operator() overloads
 ├── source/
 │   ├── rank_intersect.cpp          # EVE SIMD, radix sort, PackedPool — all here
 │   ├── merge_sort.cpp

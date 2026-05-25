@@ -100,6 +100,21 @@ population is already sorted, pass the `presorted` tag to skip the re-sort:
 auto f = ndsort::efficient_binary_sorter{}(pop, 0.0, std::identity{}, ndsort::presorted);
 ```
 
+### Tag dispatch
+
+All sorters accept an optional tag as the last argument to skip preprocessing:
+
+| Tag | Contract | What's skipped |
+|:---|:---|:---|
+| *(default)* | Unsorted, may have duplicates | Nothing |
+| `ndsort::presorted` | Lexicographically sorted, may have duplicates | Internal lex-sort |
+| `ndsort::sorted_unique` | Lexicographically sorted, no duplicates | Internal lex-sort + eps-dedup |
+
+The `sorted_unique` tag is the fastest path — it flattens the population and runs the
+sorting algorithm directly with no index reconstruction. Use it when the caller has
+already sorted and deduplicated (e.g., NSGA2's `stable_partition` removes duplicates
+before ranking).
+
 ### eps_adapter
 
 Burns in a fixed ε so call sites don't need to pass it explicitly:

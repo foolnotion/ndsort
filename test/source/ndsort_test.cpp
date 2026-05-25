@@ -370,6 +370,90 @@ TEST_CASE("presorted + duplicates - identical solutions go in same front")
     SECTION("deductive_sorter") { check(ndsort::deductive_sorter {}); }
 }
 
+TEST_CASE("sorted_unique overload produces same result as default overload")
+{
+    auto pop = make_population(200, 3, 55);
+    // Sort and deduplicate to satisfy the sorted_unique contract.
+    std::ranges::sort(pop);
+    auto const ref = sorted_fronts(ndsort::deductive_sorter {}, pop);
+
+    auto su_fronts = [](auto const& sorter, population_t const& p) {
+        auto f = sorter(p, 0.0, std::identity {}, ndsort::sorted_unique);
+        for (auto& front : f) {
+            std::ranges::sort(front);
+        }
+        return f;
+    };
+
+    SECTION("rank_intersect_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::rank_intersect_sorter {}, pop) == ref);
+    }
+    SECTION("merge_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::merge_sorter {}, pop) == ref);
+    }
+    SECTION("hierarchical_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::hierarchical_sorter {}, pop) == ref);
+    }
+    SECTION("best_order_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::best_order_sorter {}, pop) == ref);
+    }
+    SECTION("efficient_binary_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::efficient_binary_sorter {}, pop) == ref);
+    }
+    SECTION("efficient_sequential_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::efficient_sequential_sorter {}, pop) == ref);
+    }
+    SECTION("deductive_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::deductive_sorter {}, pop) == ref);
+    }
+    SECTION("dominance_degree_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::dominance_degree_sorter {}, pop) == ref);
+    }
+    SECTION("rank_ordinal_sorter")
+    {
+        REQUIRE(su_fronts(ndsort::rank_ordinal_sorter {}, pop) == ref);
+    }
+}
+
+TEST_CASE("sorted_unique + eps - near-duplicates treated as distinct")
+{
+    // With sorted_unique the dedup pass is skipped, so eps-close solutions
+    // that are NOT exact duplicates remain as separate individuals and
+    // are compared normally by the dominance logic.
+    population_t pop { { 0.0, 0.0 }, { 0.005, 0.005 }, { 1.0, 1.0 } };
+    std::ranges::sort(pop);
+
+    auto su_fronts = [](auto const& sorter, population_t const& p, double eps) {
+        auto f = sorter(p, eps, std::identity {}, ndsort::sorted_unique);
+        for (auto& front : f) {
+            std::ranges::sort(front);
+        }
+        return f;
+    };
+
+    // With eps=0 (default dominance), {0.005,0.005} is dominated by {0,0}.
+    // So we get 3 fronts.
+    auto f0 = su_fronts(ndsort::deductive_sorter {}, pop, 0.0);
+    REQUIRE(f0.size() == 3);
+
+    // With eps=0.01, {0,0} and {0.005,0.005} are eps-close on both objectives.
+    // Without dedup they remain separate individuals; the sorter sees them as
+    // non-dominated (neither eps-dominates the other). Both dominate {1,1}.
+    // Result: front 0 = {idx0, idx1}, front 1 = {idx2}.
+    auto f1 = su_fronts(ndsort::deductive_sorter {}, pop, 0.01);
+    REQUIRE(f1.size() == 2);
+    REQUIRE(f1[0].size() == 2);
+    REQUIRE(f1[1].size() == 1);
+}
+
 TEST_CASE("best_order_sort - eps on 3 objectives")
 {
     // Two solutions that are eps-close on all 3 objectives should end up in the same front.

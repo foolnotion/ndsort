@@ -118,12 +118,12 @@ namespace {
 } // namespace
 
 template <typename T>
-auto rank_ordinal_sorter::sort_impl(detail::flat_fitness<T> const& ff) const -> fronts
+auto rank_ordinal_sorter::sort_impl(detail::flat_fitness<T> const& ff, double) const -> fronts
 {
     return rank_ordinal_impl(ff);
 }
 
-template NDSORT_EXPORT auto rank_ordinal_sorter::sort_impl<float>(detail::flat_fitness<float> const&) const -> fronts;
-template NDSORT_EXPORT auto rank_ordinal_sorter::sort_impl<double>(detail::flat_fitness<double> const&) const -> fronts;
+template NDSORT_EXPORT auto rank_ordinal_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
+template NDSORT_EXPORT auto rank_ordinal_sorter::sort_impl<double>(detail::flat_fitness<double> const&, double) const -> fronts;
 
 } // namespace ndsort

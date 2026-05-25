@@ -44,6 +44,13 @@ struct eps_adapter {
     {
         return m_sorter(std::forward<P>(pop), m_eps, proj, presorted);
     }
+
+    template <typename P, typename Proj>
+        requires population<P, Proj> && std::invocable<S const&, P, double, Proj, sorted_unique_t>
+    auto operator()(P&& pop, double /*ignored*/, Proj proj, sorted_unique_t) const -> fronts
+    {
+        return m_sorter(std::forward<P>(pop), m_eps, proj, sorted_unique);
+    }
 };
 
 template <typename S>
