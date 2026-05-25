@@ -33,7 +33,7 @@ auto flatten(P&& pop, Proj proj = {})
 {
     using element_t = std::ranges::range_value_t<P>;
     using fitness_t = std::ranges::range_value_t<std::invoke_result_t<Proj, element_t>>;
-    using T = std::common_type_t<fitness_t, double>;
+    using T = std::conditional_t<std::is_floating_point_v<fitness_t>, fitness_t, double>;
 
     auto const n = std::ranges::size(pop);
     if (n == 0) {
@@ -190,6 +190,19 @@ auto sort_with_dedup(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort
         expanded[urank[canonical[i]]].push_back(perm[i]);
     }
     return expanded;
+}
+
+// Fastest path: caller guarantees input is lexicographically sorted with no duplicates.
+// Skips lex_perm, eps_dedup, and index reconstruction — directly returns sort_fn output.
+template <typename SortFn, typename P, typename Proj>
+    requires population<P, Proj>
+auto sort_sorted_unique(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
+{
+    if (std::ranges::size(pop) == 0) {
+        return {};
+    }
+    auto ff = flatten(std::forward<P>(pop), proj);
+    return sort_fn(ff, eps);
 }
 
 template <typename SortFn, typename P, typename Proj>

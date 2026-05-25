@@ -25,4 +25,11 @@ struct sorter_traits {
 struct presorted_t {};
 inline constexpr presorted_t presorted {};
 
+// Tag type: pass `sorted_unique` as the last argument to a sorter's operator() to signal
+// that the population is already lexicographically sorted AND contains no duplicates.
+// Sorters will skip both the internal lex-sort and the epsilon-deduplication passes.
+// Use this when the caller has already performed sorting and duplicate removal.
+struct sorted_unique_t {};
+inline constexpr sorted_unique_t sorted_unique {};
+
 } // namespace ndsort
