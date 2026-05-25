@@ -58,10 +58,10 @@ the fitness comparison. This removes the need for wrapper types or adapter shims
 ```cpp
 // sort a vector of your own structs directly
 std::vector<Individual> pop = ...;
-auto fronts = ndsort::RankIntersect{}(pop, 0.0, &Individual::fitness);
+auto fronts = ndsort::rank_intersect_sorter{}(pop, 0.0, &Individual::fitness);
 ```
 
-The projection must map an element to something that satisfies `FitnessVector`.
+The projection must map an element to something that satisfies `fitness_vector`.
 
 ### 3. Adapter/decorator pattern
 
@@ -86,41 +86,37 @@ ndsort provides adapters for epsilon-dominance and parallel objective passes (se
 ```cpp
 namespace ndsort {
 
-// A scalar type that can be compared with <
-template<typename T>
-concept Scalar = std::totally_ordered<T>;
-
 // A fitness vector: contiguous, random-access, fixed size at runtime
 template<typename F>
-concept FitnessVector =
+concept fitness_vector =
     std::ranges::random_access_range<F> &&
-    Scalar<std::ranges::range_value_t<F>>;
+    std::totally_ordered<std::ranges::range_value_t<F>>;
 
 // Projection maps an element to its fitness vector
 template<typename Proj, typename Element>
-concept FitnessProjection =
+concept fitness_projection =
     std::invocable<Proj, Element> &&
-    FitnessVector<std::invoke_result_t<Proj, Element>>;
+    fitness_vector<std::invoke_result_t<Proj, Element>>;
 
 // A population is a sized random-access range of elements that have fitness
 template<typename P, typename Proj = std::identity>
-concept Population =
+concept population =
     std::ranges::random_access_range<P> &&
     std::ranges::sized_range<P> &&
-    FitnessProjection<Proj, std::ranges::range_value_t<P>>;
+    fitness_projection<Proj, std::ranges::range_value_t<P>>;
 
 // The canonical result type: a vector of fronts, each front a vector of indices
-using Fronts = std::vector<std::vector<std::size_t>>;
+using fronts = std::vector<std::vector<std::size_t>>;
 
 // A non-dominated sorter: callable with (population, eps, projection)
 // The third overload set (with just population) uses identity projection and eps=0
 template<typename S, typename P, typename Proj = std::identity>
-concept NondominatedSorter =
-    Population<P, Proj> &&
+concept nondominated_sorter =
+    population<P, Proj> &&
     requires(S s, P pop, double eps, Proj proj) {
-        { s(pop, eps, proj) } -> std::same_as<Fronts>;
-        { s(pop, eps)       } -> std::same_as<Fronts>;  // identity projection
-        { s(pop)            } -> std::same_as<Fronts>;  // eps=0, identity projection
+        { s(pop, eps, proj) } -> std::same_as<fronts>;
+        { s(pop, eps)       } -> std::same_as<fronts>;  // identity projection
+        { s(pop)            } -> std::same_as<fronts>;  // eps=0, identity projection
     };
 
 } // namespace ndsort
@@ -143,16 +139,25 @@ paired with dimensions:
 // detail/flat_fitness.hpp  (no EVE dependency)
 namespace ndsort::detail {
 
-struct FlatFitness {
-    std::vector<std::uint32_t> data; // fvals[obj * n + i], float→sortable-uint
-    std::size_t n{};                 // number of individuals
-    std::size_t m{};                 // number of objectives
+template <typename T>
+struct flat_fitness {
+    static_assert(std::is_arithmetic_v<T>, "T must be arithmetic");
+
+    std::vector<T> data;
+    std::size_t n {};
+    std::size_t m {};
+
+    [[nodiscard]] auto at(std::size_t obj, std::size_t individual) const noexcept -> T
+    {
+        return data[obj * n + individual];
+    }
 };
 
-// Reads any Population through any projection and fills a FlatFitness.
+// Reads any population through any projection and fills a flat_fitness.
 // This is the only templated code that touches the caller's types.
-template<Population<Proj> P, typename Proj = std::identity>
-auto flatten(P&& pop, double eps, Proj proj = {}) -> FlatFitness;
+template <typename P, typename Proj = std::identity>
+    requires population<P, Proj>
+auto flatten(P&& pop, Proj proj = {}) -> flat_fitness</* deduced */>;
 
 } // namespace ndsort::detail
 ```
@@ -195,7 +200,7 @@ private:
 
 namespace ndsort {
 
-auto RankIntersect::sort_impl(detail::FlatFitness const& ff, double eps) const -> Fronts {
+auto rank_intersect_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) const -> fronts {
     // PackedPool, radix sort, SIMD bitset intersection ...
 }
 
@@ -205,9 +210,6 @@ auto RankIntersect::sort_impl(detail::FlatFitness const& ff, double eps) const -
 The consumer sees only `<ndsort/rank_intersect.hpp>`, which pulls in `flat_fitness.hpp`
 (stdlib-only) and the concept headers. EVE is an implementation detail of the compiled
 library, invisible at the include boundary.
-
-This also means `FlatFitness` can use `uint32_t` or `uint64_t` depending on the scalar
-width of the input (detected in `flatten`), without exposing that choice in the API.
 
 ### Float-to-sortable encoding
 
@@ -227,10 +229,6 @@ auto float_to_sortable(T v) -> std::conditional_t<sizeof(T)==4, uint32_t, uint64
 }
 ```
 
-Sorters that don't use radix sort (Deductive, MergeSort) can skip this encoding and
-work directly from the canonical `double` representation; `flatten` can be parameterised
-on the key type.
-
 ---
 
 ## Sorter interface
@@ -240,7 +238,7 @@ The full signature:
 
 ```cpp
 template<Population<Proj> P, typename Proj = std::identity>
-auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> Fronts;
+auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts;
 ```
 
 `flatten` is called exactly once inside `operator()`, so the input range is traversed
@@ -269,15 +267,15 @@ each concrete sorter only implements a private `sort_impl(flat_fitness<T> const&
 
 | Type                    | Algorithm                       | Best case  |
 |-------------------------|---------------------------------|------------|
-| `RankIntersect`         | Bitset intersection + radix sort | low m, large n |
-| `MergeSort`             | Bitset merge                    | low–mid m  |
-| `Deductive`             | Bitset sweep                    | reference  |
-| `DominanceDegree`       | Degree matrix                   | mid m      |
-| `EfficientBinary`       | ENS-BS                          | m=2        |
-| `EfficientSequential`   | ENS-SS                          | m=2        |
-| `BestOrder`             | BOS                             | m=2        |
-| `HierarchicalSort`      | HSS                             | mid m      |
-| `RankOrdinal`           | Ordinal rank                    | small n    |
+| `rank_intersect_sorter` | Bitset intersection + radix sort | low m, large n |
+| `merge_sorter`          | Bitset merge                    | low–mid m  |
+| `deductive_sorter`      | Bitset sweep                    | reference  |
+| `dominance_degree_sorter` | Degree matrix                 | mid m      |
+| `efficient_binary_sorter` | ENS-BS                        | m=2        |
+| `efficient_sequential_sorter` | ENS-SS                    | m=2        |
+| `best_order_sorter`     | BOS                             | m=2        |
+| `hierarchical_sorter`   | HSS                             | mid m      |
+| `rank_ordinal_sorter`   | Ordinal rank                    | small n    |
 
 ---
 
@@ -285,7 +283,7 @@ each concrete sorter only implements a private `sort_impl(flat_fitness<T> const&
 
 Adapters are class templates that take a sorter type and return a new sorter type.
 They follow the same callable interface as raw sorters so they satisfy
-`NondominatedSorter` and can themselves be adapted.
+`nondominated_sorter` and can themselves be adapted.
 
 ### `eps_adapter<S>` — epsilon-dominance
 
@@ -293,36 +291,20 @@ Burns in a fixed epsilon so call sites don't need to pass it explicitly.
 Useful when constructing sorters in algorithm configuration structs.
 
 ```cpp
-template<NondominatedSorter S>
+template<nondominated_sorter S>
 struct eps_adapter {
     S sorter_{};
     double eps_{};
 
-    template<Population<Proj> P, typename Proj = std::identity>
-    auto operator()(P&& pop, Proj proj = {}) const -> Fronts {
+    template<population P, typename Proj = std::identity>
+    auto operator()(P&& pop, Proj proj = {}) const -> fronts {
         return sorter_(std::forward<P>(pop), eps_, proj);
     }
 };
 
 // usage
-auto sorter = ndsort::eps_adapter<ndsort::RankIntersect>{ .eps_ = 1e-6 };
+auto sorter = ndsort::eps_adapter{ndsort::rank_intersect_sorter{}};
 auto fronts = sorter(population);
-```
-
-### `cached_adapter<S>` — result caching
-
-Caches the last result keyed by population size and content hash.
-Useful when the same population is sorted multiple times per generation
-(e.g., during reinsertion).
-
-```cpp
-template<NondominatedSorter S>
-struct cached_adapter {
-    S sorter_{};
-    mutable std::optional<Fronts> cache_;
-    mutable std::size_t last_hash_{};
-    // ...
-};
 ```
 
 ### `parallel_adapter<S>` *(future)*
@@ -388,9 +370,9 @@ ndsort/
 ├── include/
 │   └── ndsort/
 │       ├── ndsort.hpp              # umbrella include
-│       ├── concepts.hpp            # FitnessVector, Population, NondominatedSorter
+│       ├── concepts.hpp            # fitness_vector, population, nondominated_sorter
 │       ├── traits.hpp              # sorter_traits
-│       ├── fronts.hpp              # Fronts type alias + helpers
+│       ├── fronts.hpp              # fronts type alias + helpers
 │       ├── rank_intersect.hpp      # public interface only — no EVE
 │       ├── merge_sort.hpp
 │       ├── deductive.hpp
@@ -400,10 +382,9 @@ ndsort/
 │       ├── hierarchical_sort.hpp
 │       ├── rank_ordinal.hpp
 │       ├── adapters/
-│       │   ├── eps_adapter.hpp
-│       │   └── cached_adapter.hpp
+│       │   └── eps_adapter.hpp
 │       └── detail/
-│           ├── flat_fitness.hpp    # FlatFitness + flatten<>; stdlib-only
+│           ├── flat_fitness.hpp    # flat_fitness<T> + flatten<>; stdlib-only
 │           └── sorter_base.hpp    # CRTP base providing operator() overloads
 ├── source/
 │   ├── rank_intersect.cpp          # EVE SIMD, radix sort, PackedPool — all here
@@ -412,8 +393,8 @@ ndsort/
 │   └── ...
 ├── test/
 │   ├── CMakeLists.txt
-│   ├── correctness.cpp             # agreement with DeductiveSorter, seed sweep
-│   └── performance.cpp             # nanobench microbenchmarks
+│   ├── ndsort_test.cpp         # agreement with deductive_sorter, seed sweep
+│   └── bench.cpp               # nanobench microbenchmarks
 └── flake.nix                       # Nix dev shell with EVE, Catch2, nanobench
 ```
 
@@ -438,24 +419,15 @@ third-party dependencies — only the C++20 standard library.
 
 ## Open questions
 
-1. **`FlatFitness` key width** — `flatten` currently encodes to `uint32_t` (for `float`
-   input). Sorters that don't radix-sort don't need integer keys at all; `flatten` could
-   be parameterised on a key type or provide two overloads (`flatten_sortable` vs
-   `flatten_doubles`). Decide when porting Deductive/MergeSort.
-
-2. **Return type flexibility** — `Fronts = vector<vector<size_t>>` is concrete and
+1. **Return type flexibility** — `fronts = vector<vector<size_t>>` is concrete and
    simple. If small-vector optimisation matters later, it can be a template parameter on
    the sorter. Start concrete.
 
-3. **Epsilon as a type parameter vs runtime value** — `eps_adapter` burns it in at
+2. **Epsilon as a type parameter vs runtime value** — `eps_adapter` burns it in at
    construction time; raw sorters take it at call time. This split seems right and mirrors
    how cpp-sort handles comparators vs adapters.
 
-4. **cpp-sort removal from MergeSort** — `merge_sort.cpp` still depends on
-   `<cpp-sort/sorters/merge_sorter.h>`. The internal merge step should be replaced
-   with `std::ranges::inplace_merge` or a hand-rolled merge to make ndsort dependency-free.
-
-5. **CMake install interface** — `EVE` must appear only in the private link dependencies
+3. **CMake install interface** — `EVE` must appear only in the private link dependencies
    of the compiled targets, not in the public interface. `flat_fitness.hpp` (stdlib-only)
    goes in the public include path. This needs a careful `target_link_libraries` split
    between `PUBLIC` (concepts, fronts, detail/flat_fitness) and `PRIVATE` (EVE).

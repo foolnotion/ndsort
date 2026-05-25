@@ -1,6 +1,7 @@
 {
   "name": "ndsort",
   "version-semver": "0.1.0",
+  "license": "MIT",
   "dependencies": [
     {
       "name": "eve",

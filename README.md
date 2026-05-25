@@ -1,5 +1,8 @@
 # ndsort
 
+[![CI](https://github.com/foolnotion/ndsort/actions/workflows/ci.yml/badge.svg)](https://github.com/foolnotion/ndsort/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A generic C++20 library of non-dominated sorting algorithms for multi-objective evolutionary optimization.
 
 ## Algorithms
@@ -167,4 +170,4 @@ See [BENCHMARKS.md](BENCHMARKS.md) for results on an AMD Ryzen 9 5950X.
 
 ## License
 
-MIT
+[MIT](LICENSE)
