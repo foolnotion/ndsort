@@ -25,16 +25,18 @@ struct eps_adapter {
         return m_sorter(std::forward<P>(pop), m_eps);
     }
 
+    // eps argument is intentionally ignored; m_eps is always used.
+    // These overloads exist solely to satisfy the nondominated_sorter concept.
     template <typename P>
         requires population<P> && std::invocable<S const&, P, double>
-    auto operator()(P&& pop, double /*ignored*/) const -> fronts
+    auto operator()(P&& pop, double /*eps — use m_eps instead*/) const -> fronts
     {
         return m_sorter(std::forward<P>(pop), m_eps);
     }
 
     template <typename P, typename Proj>
         requires population<P, Proj> && std::invocable<S const&, P, double, Proj>
-    auto operator()(P&& pop, double /*ignored*/, Proj proj) const -> fronts
+    auto operator()(P&& pop, double /*eps — use m_eps instead*/, Proj proj) const -> fronts
     {
         return m_sorter(std::forward<P>(pop), m_eps, proj);
     }
