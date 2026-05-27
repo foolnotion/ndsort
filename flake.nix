@@ -47,9 +47,24 @@
             nativeBuildInputs = with pkgs; [ cmake ];
             inherit buildInputs;
           };
+
+          ndsort-python = stdenv.mkDerivation {
+            name = "ndsort-python";
+            src = ./.;
+            cmakeFlags = [
+              "-DBUILD_SHARED_LIBS=NO"
+              "-DCMAKE_BUILD_TYPE=Release"
+              "-DNDSORT_PYTHON=YES"
+            ] ++ pkgs.lib.optionals isX86 [
+              "-DCMAKE_CXX_FLAGS=-march=x86-64-v3"
+            ];
+            nativeBuildInputs = with pkgs; [ cmake python3 python3Packages.nanobind ];
+            inherit buildInputs;
+          };
         in
         {
           packages.default = ndsort;
+          packages.ndsort-python = ndsort-python;
 
           devShells.default = stdenv.mkDerivation {
             name = "ndsort-dev";
@@ -58,6 +73,7 @@
               clang-tools
               cppcheck
               ninja
+              python3
             ];
             buildInputs = buildInputs ++ testInputs;
           };

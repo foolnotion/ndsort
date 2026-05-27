@@ -85,6 +85,15 @@ if(NOT CMAKE_SKIP_INSTALL_RULES)
   include(cmake/install-rules.cmake)
 endif()
 
+# ---- Python bindings ----
+
+option(NDSORT_PYTHON "Build Python bindings via nanobind" OFF)
+
+if(NDSORT_PYTHON)
+    set_target_properties(ndsort_ndsort PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    add_subdirectory(python)
+endif()
+
 # ---- Examples ----
 
 if(PROJECT_IS_TOP_LEVEL)
