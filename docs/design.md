@@ -132,8 +132,8 @@ out of the consumer's translation unit.
 
 ### Canonical fitness representation
 
-The internal type is a flat, row-major SoA buffer of sortable unsigned integers,
-paired with dimensions:
+The internal type is a flat, row-major SoA buffer of arithmetic values (the scalar
+type of the input fitness, or `double` for integer inputs), paired with dimensions:
 
 ```cpp
 // detail/flat_fitness.hpp  (no EVE dependency)
@@ -213,8 +213,9 @@ library, invisible at the include boundary.
 
 ### Float-to-sortable encoding
 
-`flatten` encodes each fitness scalar as a sortable unsigned integer so the radix sort
-in RankIntersect sees only integer keys:
+`flatten` stores raw arithmetic values. Sorters that use radix sort (e.g. RankIntersect,
+MergeSort) call `float_to_sortable` inside their `sort_impl` to convert each value to a
+sortable unsigned integer key:
 
 ```cpp
 // Works for both float (32-bit) and double (64-bit) via std::conditional_t
@@ -237,13 +238,13 @@ Each sorter is a stateless struct with a templated call operator.
 The full signature:
 
 ```cpp
-template<Population<Proj> P, typename Proj = std::identity>
+template <typename P, typename Proj = std::identity>
+    requires population<P, Proj>
 auto operator()(P&& pop, double eps = 0.0, Proj proj = {}) const -> fronts;
 ```
 
 `flatten` is called exactly once inside `operator()`, so the input range is traversed
-once regardless of projection cost. Everything after that is integer arithmetic on the
-canonical buffer.
+once regardless of projection cost. Everything after that operates on the canonical buffer.
 
 ### Tag dispatch
 

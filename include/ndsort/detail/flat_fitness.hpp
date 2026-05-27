@@ -2,6 +2,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -51,6 +52,7 @@ auto flatten(P&& pop, Proj proj = {})
     auto pop_it = std::ranges::begin(pop);
     for (std::size_t i = 0; i < n; ++i, ++pop_it) {
         auto const& fitness = std::invoke(proj, *pop_it);
+        assert(std::ranges::size(fitness) == m && "all individuals must have the same number of objectives");
         auto fit_it = std::ranges::begin(fitness);
         for (std::size_t j = 0; j < m; ++j, ++fit_it) {
             ff.data[j * n + i] = static_cast<T>(*fit_it);
