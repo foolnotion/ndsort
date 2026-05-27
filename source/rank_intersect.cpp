@@ -20,11 +20,11 @@ namespace {
     using detail::radix_sort;
     using detail::sort_item;
 
-    static constexpr uint64_t k_zeros { 0UL };
-    static constexpr uint64_t k_ones { ~k_zeros };
-    static constexpr int k_digits { std::numeric_limits<uint64_t>::digits };
+    static constexpr uint64_t zeros { 0UL };
+    static constexpr uint64_t ones { ~zeros };
+    static constexpr int digits { std::numeric_limits<uint64_t>::digits };
 
-    static constexpr std::size_t k_pool_budget { 2UL << 20 };
+    static constexpr std::size_t pool_budget { 2UL << 20 };
 
     struct bitset_ref {
         int lo;
@@ -44,16 +44,16 @@ namespace {
             int off { 0 };
             for (int j = 0; j < n; ++j) {
                 offs[j] = off;
-                off += nb - j / k_digits;
+                off += nb - j / digits;
             }
-            return packed_pool { std::vector<uint64_t>(static_cast<std::size_t>(off), k_zeros), std::move(offs) };
+            return packed_pool { std::vector<uint64_t>(static_cast<std::size_t>(off), zeros), std::move(offs) };
         }
 
         static auto total_words(int n, int nb) -> std::size_t
         {
             std::size_t total { 0 };
             for (int j = 0; j < n; ++j) {
-                total += static_cast<std::size_t>(nb - j / k_digits);
+                total += static_cast<std::size_t>(nb - j / digits);
             }
             return total;
         }
@@ -76,7 +76,7 @@ namespace {
         Storage& store, std::vector<bitset_ref>& refs)
         -> std::tuple<std::vector<sort_item<T>>, std::vector<sort_item<T>>, std::vector<uint64_t>>
     {
-        auto const ub = static_cast<std::size_t>(k_digits * nb) - static_cast<std::size_t>(n);
+        auto const ub = static_cast<std::size_t>(digits * nb) - static_cast<std::size_t>(n);
 
         std::vector<sort_item<T>> items(n);
         std::vector<sort_item<T>> scratch(n);
@@ -86,12 +86,12 @@ namespace {
         }
         radix_sort(items.data(), scratch.data(), n);
 
-        std::vector<uint64_t> mask(nb, k_ones);
+        std::vector<uint64_t> mask(nb, ones);
         mask[nb - 1] >>= ub;
 
         for (int i = 0; i < n; ++i) {
             auto const j = items[i].index;
-            auto const [q, r] = std::div(j, k_digits);
+            auto const [q, r] = std::div(j, digits);
             mask[q] &= ~(uint64_t { 1 } << static_cast<unsigned>(r));
 
             int lo { 0 };
@@ -104,7 +104,7 @@ namespace {
             }
 
             auto const* ptr = mask.data() + q;
-            while (hi >= lo && *(ptr + hi) == k_zeros) {
+            while (hi >= lo && *(ptr + hi) == zeros) {
                 --hi;
             }
 
@@ -119,12 +119,12 @@ namespace {
                     store.alloc(j, sz);
                     bits = store.get(j);
                 }
-                bits[0] = (k_ones << static_cast<unsigned>(r)) & mask[q];
+                bits[0] = (ones << static_cast<unsigned>(r)) & mask[q];
                 std::copy_n(mask.data() + q + 1, sz - 1, bits + 1);
-                while (lo <= hi && bits[lo] == k_zeros) {
+                while (lo <= hi && bits[lo] == zeros) {
                     ++lo;
                 }
-                while (lo <= hi && bits[hi] == k_zeros) {
+                while (lo <= hi && bits[hi] == zeros) {
                     --hi;
                 }
             }
@@ -146,7 +146,7 @@ namespace {
             }
             radix_sort(items.data(), scratch.data(), n);
 
-            std::fill_n(mask.data(), nb, k_ones);
+            std::fill_n(mask.data(), nb, ones);
             mask[nb - 1] >>= ub;
 
             auto done = 0;
@@ -156,14 +156,14 @@ namespace {
             refs[last].lo = refs[last].hi + 1;
             ++done;
 
-            mask[first / k_digits] &= ~(uint64_t { 1 } << static_cast<unsigned>(first % k_digits));
+            mask[first / digits] &= ~(uint64_t { 1 } << static_cast<unsigned>(first % digits));
             done += static_cast<int>(refs[first].lo > refs[first].hi);
 
-            auto mmin = first / k_digits;
-            auto mmax = first / k_digits;
+            auto mmin = first / digits;
+            auto mmax = first / digits;
 
             for (auto [i, dummy_] : std::span { items.begin() + 1, items.end() - 1 }) {
-                auto const [q, r] = std::div(i, k_digits);
+                auto const [q, r] = std::div(i, digits);
                 mask[q] &= ~(uint64_t { 1 } << static_cast<unsigned>(r));
                 mmin = std::min(q, mmin);
                 mmax = std::max(q, mmax);
@@ -186,10 +186,10 @@ namespace {
                 eve::algo::transform_to(eve::views::zip(pb, pm), pb, [](auto t) {
                     return kumi::apply(std::bit_and {}, t);
                 });
-                while (lo <= hi && bits[lo] == k_zeros) {
+                while (lo <= hi && bits[lo] == zeros) {
                     ++lo;
                 }
-                while (lo <= hi && bits[hi] == k_zeros) {
+                while (lo <= hi && bits[hi] == zeros) {
                     --hi;
                 }
             }
@@ -217,7 +217,7 @@ namespace {
             auto* curr = rankset[r].get();
             auto* next = rankset[r + 1].get();
             auto const* bits = store.get(i);
-            auto const b = i / k_digits + lo;
+            auto const b = i / digits + lo;
 
             for (int k = lo, j = b; k <= hi; ++k, ++j) {
                 auto x = bits[k] & curr[j];
@@ -226,7 +226,7 @@ namespace {
                 }
                 curr[j] &= ~x;
                 next[j] |= x;
-                auto const o = static_cast<std::size_t>(j) * k_digits;
+                auto const o = static_cast<std::size_t>(j) * digits;
                 for (; x != 0; x &= (x - 1)) {
                     ++rank[o + static_cast<std::size_t>(std::countr_zero(x))];
                 }
@@ -248,8 +248,8 @@ namespace {
             return result;
         }
 
-        int const nb = n / k_digits + static_cast<int>(n % k_digits != 0);
-        auto const ub = static_cast<std::size_t>(k_digits * nb) - static_cast<std::size_t>(n);
+        int const nb = n / digits + static_cast<int>(n % digits != 0);
+        auto const ub = static_cast<std::size_t>(digits * nb) - static_cast<std::size_t>(n);
 
         auto const& fvals = ff.data;
 
@@ -258,12 +258,12 @@ namespace {
 
         std::vector<std::unique_ptr<uint64_t[]>> rs;
         rs.push_back(std::make_unique<uint64_t[]>(static_cast<std::size_t>(nb)));
-        std::fill_n(rs[0].get(), nb, k_ones);
+        std::fill_n(rs[0].get(), nb, ones);
         rs[0][nb - 1] >>= ub;
 
         auto const obj1_offset = static_cast<int>(ff.n);
 
-        if (packed_pool::total_words(n, nb) <= k_pool_budget) {
+        if (packed_pool::total_words(n, nb) <= pool_budget) {
             auto pool = packed_pool::create(n, nb);
             auto [items, scratch, mask] = init_bitsets(fvals, n, nb, obj1_offset, pool, refs);
             objective_loop(fvals, n, m, pool, refs, items, scratch, mask, nb, ub);

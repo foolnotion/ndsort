@@ -18,57 +18,57 @@ namespace {
 
     class bitset_manager {
         using word_t = uint64_t;
-        static constexpr std::size_t k_first = 0;
-        static constexpr std::size_t k_last = 1;
-        static constexpr word_t k_ones = ~word_t { 0 };
-        static constexpr std::size_t k_word_bits = std::numeric_limits<word_t>::digits;
+        static constexpr std::size_t first_idx = 0;
+        static constexpr std::size_t last_idx = 1;
+        static constexpr word_t ones = ~word_t { 0 };
+        static constexpr std::size_t word_bits = std::numeric_limits<word_t>::digits;
 
-        std::vector<std::vector<word_t>> m_bitsets;
-        std::vector<std::array<std::size_t, 2>> m_ranges;
-        std::vector<int> m_word_ranking;
-        std::vector<int> m_ranking;
-        std::vector<int> m_ranking0;
-        int m_max_rank { 0 };
-        std::vector<word_t> m_incremental;
-        std::size_t m_inc_first { std::numeric_limits<std::size_t>::max() };
-        std::size_t m_inc_last { 0 };
+        std::vector<std::vector<word_t>> bitsets_;
+        std::vector<std::array<std::size_t, 2>> ranges_;
+        std::vector<int> word_ranking_;
+        std::vector<int> ranking_;
+        std::vector<int> ranking0_;
+        int max_rank_ { 0 };
+        std::vector<word_t> incremental_;
+        std::size_t inc_first_ { std::numeric_limits<std::size_t>::max() };
+        std::size_t inc_last_ { 0 };
 
     public:
         explicit bitset_manager(std::size_t n)
-            : m_bitsets(n)
-            , m_ranges(n)
-            , m_word_ranking(n, 0)
-            , m_ranking(n, 0)
-            , m_ranking0(n, 0)
-            , m_incremental(n / k_word_bits + (n % k_word_bits != 0 ? 1UZ : 0UZ), word_t { 0 })
+            : bitsets_(n)
+            , ranges_(n)
+            , word_ranking_(n, 0)
+            , ranking_(n, 0)
+            , ranking0_(n, 0)
+            , incremental_(n / word_bits + (n % word_bits != 0 ? 1UZ : 0UZ), word_t { 0 })
         {
         }
 
-        [[nodiscard]] auto get_ranking() const -> std::vector<int> const& { return m_ranking0; }
+        [[nodiscard]] auto get_ranking() const -> std::vector<int> const& { return ranking0_; }
 
         auto update_solution_dominance(std::size_t id) -> bool
         {
-            auto fw = m_ranges[id][k_first];
-            auto lw = m_ranges[id][k_last];
-            lw = std::min(lw, m_inc_last);
-            fw = std::max(fw, m_inc_first);
+            auto fw = ranges_[id][first_idx];
+            auto lw = ranges_[id][last_idx];
+            lw = std::min(lw, inc_last_);
+            fw = std::max(fw, inc_first_);
 
-            while (fw <= lw && (m_bitsets[id][fw] & m_incremental[fw]) == 0) {
+            while (fw <= lw && (bitsets_[id][fw] & incremental_[fw]) == 0) {
                 ++fw;
             }
-            while (fw <= lw && (m_bitsets[id][lw] & m_incremental[lw]) == 0) {
+            while (fw <= lw && (bitsets_[id][lw] & incremental_[lw]) == 0) {
                 --lw;
             }
-            m_ranges[id][k_first] = fw;
-            m_ranges[id][k_last] = lw;
+            ranges_[id][first_idx] = fw;
+            ranges_[id][last_idx] = lw;
 
             if (fw > lw) {
                 return false;
             }
 
-            auto* bits = m_bitsets[id].data();
+            auto* bits = bitsets_[id].data();
             std::span<word_t> pb(bits + fw, lw - fw + 1);
-            std::span<word_t const> pm(m_incremental.data() + fw, lw - fw + 1);
+            std::span<word_t const> pm(incremental_.data() + fw, lw - fw + 1);
             eve::algo::transform_to(eve::views::zip(pb, pm), pb, [](auto t) {
                 return kumi::apply(std::bit_and {}, t);
             });
@@ -77,80 +77,80 @@ namespace {
 
         void compute_solution_ranking(std::size_t id, std::size_t init_id)
         {
-            auto fw = m_ranges[id][k_first];
-            auto lw = m_ranges[id][k_last];
-            lw = std::min(lw, m_inc_last);
-            fw = std::max(fw, m_inc_first);
+            auto fw = ranges_[id][first_idx];
+            auto lw = ranges_[id][last_idx];
+            lw = std::min(lw, inc_last_);
+            fw = std::max(fw, inc_first_);
             if (fw > lw) {
                 return;
             }
 
             int rank { 0 };
             for (auto w = fw; w <= lw; ++w) {
-                word_t word = m_bitsets[id][w] & m_incremental[w];
+                word_t word = bitsets_[id][w] & incremental_[w];
                 if (word == 0) {
                     continue;
                 }
                 auto i = static_cast<std::size_t>(std::countr_zero(word));
-                auto const offset = w * k_word_bits;
+                auto const offset = w * word_bits;
                 do {
-                    auto r = m_ranking[offset + i];
+                    auto r = ranking_[offset + i];
                     if (r >= rank) {
                         rank = r + 1;
                     }
                     ++i;
-                    if (i < k_word_bits) {
+                    if (i < word_bits) {
                         i += static_cast<std::size_t>(std::countr_zero(word >> i));
                     }
-                } while (i < k_word_bits && rank <= m_word_ranking[w]);
-                if (rank > m_max_rank) {
-                    m_max_rank = rank;
+                } while (i < word_bits && rank <= word_ranking_[w]);
+                if (rank > max_rank_) {
+                    max_rank_ = rank;
                     break;
                 }
             }
-            m_ranking[id] = rank;
-            m_ranking0[init_id] = rank;
-            auto wi = id / k_word_bits;
-            if (rank > m_word_ranking[wi]) {
-                m_word_ranking[wi] = rank;
+            ranking_[id] = rank;
+            ranking0_[init_id] = rank;
+            auto wi = id / word_bits;
+            if (rank > word_ranking_[wi]) {
+                word_ranking_[wi] = rank;
             }
         }
 
         void update_incremental(std::size_t id)
         {
-            auto wi = id / k_word_bits;
-            m_incremental[wi] |= (word_t { 1 } << (id % k_word_bits));
-            m_inc_last = std::max(m_inc_last, wi);
-            m_inc_first = std::min(m_inc_first, wi);
+            auto wi = id / word_bits;
+            incremental_[wi] |= (word_t { 1 } << (id % word_bits));
+            inc_last_ = std::max(inc_last_, wi);
+            inc_first_ = std::min(inc_first_, wi);
         }
 
         auto init_solution_bitset(std::size_t id) -> bool
         {
-            auto wi = id / k_word_bits;
-            if (wi < m_inc_first || id == 0) {
-                m_ranges[id][k_first] = std::numeric_limits<std::size_t>::max();
+            auto wi = id / word_bits;
+            if (wi < inc_first_ || id == 0) {
+                ranges_[id][first_idx] = std::numeric_limits<std::size_t>::max();
                 return false;
             }
-            if (wi == m_inc_first) {
-                m_bitsets[id].resize(wi + 1);
-                auto intersection = m_incremental[m_inc_first] & ~(k_ones << (id % k_word_bits));
+            if (wi == inc_first_) {
+                bitsets_[id].resize(wi + 1);
+                auto intersection = incremental_[inc_first_] & ~(ones << (id % word_bits));
                 if (intersection != 0) {
-                    m_ranges[id][k_first] = wi;
-                    m_ranges[id][k_last] = wi;
-                    m_bitsets[id][wi] = intersection;
+                    ranges_[id][first_idx] = wi;
+                    ranges_[id][last_idx] = wi;
+                    bitsets_[id][wi] = intersection;
                 }
                 return intersection != 0;
             }
-            auto lw = std::min(m_inc_last, wi);
-            m_ranges[id][k_first] = m_inc_first;
-            m_ranges[id][k_last] = lw;
-            m_bitsets[id] = std::vector<word_t>(lw + 1);
-            std::copy_n(m_incremental.data() + m_inc_first, lw - m_inc_first + 1,
-                m_bitsets[id].data() + m_inc_first);
-            if (m_inc_last >= wi) {
-                m_bitsets[id][lw] = m_incremental[lw] & ~(k_ones << (id % k_word_bits));
-                if (m_bitsets[id][lw] == 0) {
-                    --m_ranges[id][k_last];
+            auto lw = std::min(inc_last_, wi);
+            ranges_[id][first_idx] = inc_first_;
+            ranges_[id][last_idx] = lw;
+            bitsets_[id] = std::vector<word_t>(lw + 1);
+            std::copy_n(incremental_.data() + inc_first_, lw - inc_first_ + 1,
+                bitsets_[id].data() + inc_first_);
+            if (inc_last_ >= wi) {
+                bitsets_[id][lw] = incremental_[lw] & ~(ones << (id % word_bits));
+                if (bitsets_[id][lw] == 0) {
+                    --ranges_[id][last_idx];
                 }
             }
             return true;
@@ -158,9 +158,9 @@ namespace {
 
         void clear_incremental()
         {
-            std::fill(m_incremental.begin(), m_incremental.end(), word_t { 0 });
-            m_inc_last = 0;
-            m_inc_first = std::numeric_limits<std::size_t>::max();
+            std::fill(incremental_.begin(), incremental_.end(), word_t { 0 });
+            inc_last_ = 0;
+            inc_first_ = std::numeric_limits<std::size_t>::max();
         }
     };
 
