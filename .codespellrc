@@ -4,4 +4,4 @@ check-filenames =
 check-hidden =
 skip = */.git,*/build,*/prefix,*/bibliography
 quiet-level = 2
-ignore-words-list = mape,iff,warmup,deque
+ignore-words-list = mape,iff,warmup,deque,arange

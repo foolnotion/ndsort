@@ -127,6 +127,67 @@ auto sorter = ndsort::eps_adapter{ndsort::rank_intersect_sorter{}, 1e-6};
 auto f = sorter(population);
 ```
 
+## Python
+
+The library ships nanobind bindings that expose all nine sorters and `pareto_compare` to Python.
+
+### Building
+
+nanobind must be installed before configuring (`pip install nanobind` or via your system package manager):
+
+```sh
+cmake -B build -DNDSORT_PYTHON=ON
+cmake --build build
+export PYTHONPATH=$PWD/build/python
+```
+
+### Usage
+
+```python
+import numpy as np
+import ndsort
+
+rng = np.random.default_rng(0)
+pop = rng.random((1000, 3))   # 1000 individuals, 3 objectives
+
+# Returns list[np.ndarray[uint64]] — one index array per Pareto front.
+fronts = ndsort.sort(pop)                                 # default: rank_intersect
+fronts = ndsort.sort(pop, method="merge", eps=1e-6)
+
+# front 0 is the non-dominated set
+pareto_front = pop[fronts[0]]
+```
+
+`method` accepts: `rank_intersect`, `merge`, `deductive`, `hierarchical`, `best_order`,
+`dominance_degree`, `rank_ordinal`, `efficient_binary`, `efficient_sequential`.
+
+### pareto_compare
+
+```python
+a = np.array([0.1, 0.9])
+b = np.array([0.5, 0.5])
+ndsort.pareto_compare(a, b)   # → Dominance.none, .left, .right, or .equal
+```
+
+### Sort hints
+
+The Python API exposes the same fast-path tags as the C++ library:
+
+```python
+# Population already in lexicographic fitness order — skip internal sort.
+fronts = ndsort.sort(pop, hint=ndsort.SortHint.presorted)
+
+# Population sorted and duplicate-free — skip sort and eps-dedup.
+fronts = ndsort.sort(pop, hint=ndsort.SortHint.sorted_unique)
+```
+
+### Performance
+
+Pass a 2-D numpy array rather than a list of lists.
+With a numpy array the binding reads directly from the buffer; no intermediate copy is made.
+The only copy that occurs is `flatten()`'s row-major → column-major transposition, which the
+sorting algorithms require regardless of input type.
+
 ## Input contract
 
 All sorters expect the input to be **free of exact duplicates**
@@ -154,6 +215,8 @@ cmake --build build
 | `BUILD_TESTING` | `ON` (dev mode) | Build and run the test suite |
 | `BUILD_BENCHMARKS` | `ON` (dev mode) | Build the nanobench benchmark binary |
 | `BUILD_EXAMPLES` | `ON` (dev mode) | Build example programs |
+| `NDSORT_PYTHON` | `OFF` | Build the Python extension module |
+| `NDSORT_PYTHON_TESTS` | `ON` | Register a CTest target (`ndsort_pytest`) that runs the Python test suite |
 
 ### Benchmarks
 
