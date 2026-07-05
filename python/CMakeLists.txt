@@ -1,4 +1,4 @@
-find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 
 find_package(nanobind CONFIG REQUIRED)
 
@@ -28,7 +28,7 @@ if(NDSORT_PYTHON_TESTS)
 
     add_test(
         NAME    ndsort_pytest
-        COMMAND "${Python3_EXECUTABLE}" -m pytest
+        COMMAND "${Python_EXECUTABLE}" -m pytest
                     --tb=short -q
                     "${CMAKE_CURRENT_BINARY_DIR}/tests"
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"

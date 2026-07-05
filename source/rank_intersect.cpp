@@ -240,6 +240,19 @@ namespace {
         int const n = static_cast<int>(ff.n);
         int const m = static_cast<int>(ff.m);
 
+        if (n <= 1) {
+            // objective_loop's middle-of-items span assumes at least 2
+            // elements (it excludes the first and last via begin()+1 /
+            // end()-1); for n<=1 that range is empty-but-invalid (first
+            // > last), which is UB. Every individual is trivially
+            // non-dominated when there's nothing to compare against.
+            fronts result(static_cast<std::size_t>(n));
+            for (std::size_t i = 0; i < static_cast<std::size_t>(n); ++i) {
+                result[0].push_back(i);
+            }
+            return result;
+        }
+
         if (m == 1) {
             fronts result(static_cast<std::size_t>(n));
             for (std::size_t i = 0; i < static_cast<std::size_t>(n); ++i) {

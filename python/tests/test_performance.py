@@ -74,8 +74,6 @@ def _measure(fn, *, number: int = _TIMEIT_NUMBER, reps: int = _TIMEIT_REPS) -> f
 # These tests require pytest-benchmark (`pip install pytest-benchmark`).
 # They produce no pass/fail assertion; their purpose is regression tracking.
 
-pytest_plugins = ["pytest_benchmark.plugin"] if True else []  # soft import guard
-
 
 @pytest.fixture(params=ALL_METHODS)
 def method(request):

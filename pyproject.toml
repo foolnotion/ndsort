@@ -1,0 +1,53 @@
+[build-system]
+requires = ["scikit-build-core>=0.9", "nanobind>=2.2"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ndsort"
+version = "0.1.0"
+description = "Generic C++20 non-dominated sorting library"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+]
+
+[tool.scikit-build]
+cmake.args = ["-DNDSORT_PYTHON=ON", "-DBUILD_TESTING=OFF"]
+cmake.build-type = "Release"
+
+# ── cibuildwheel ──────────────────────────────────────────────────────────────
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+build-frontend = "build"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+manylinux-x86_64-image = "ghcr.io/pypa/manylinux_2_28_x86_64"
+# Bootstrap vcpkg inside the container using the commit pinned in vcpkg.json.
+before-all = """
+    set -eux
+    commit=$(python3 -c "import json; print(json.load(open('/project/vcpkg.json'))['builtin-baseline'])")
+    git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg
+    git -C /opt/vcpkg checkout "$commit"
+    /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+"""
+environment = { CXXFLAGS = "-march=x86-64-v3", CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake" }
+
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+environment = { CXXFLAGS = "-mcpu=native" }
+# CMAKE_ARGS (vcpkg toolchain path) is injected by the workflow because the
+# path depends on where setup-vcpkg installs it on the runner.
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+environment = { CL = "/arch:AVX2" }
+# CMAKE_ARGS (vcpkg toolchain path) is injected by the workflow.

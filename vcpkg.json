@@ -10,6 +10,15 @@
   ],
   "default-features": [],
   "features": {
+    "python": {
+      "description": "Python bindings via nanobind",
+      "dependencies": [
+        {
+          "name": "nanobind",
+          "version>=": "2.2.0"
+        }
+      ]
+    },
     "test": {
       "description": "Dependencies for testing",
       "dependencies": [
