@@ -35,11 +35,11 @@
           buildInputs = with pkgs; [ eve ];
           testInputs  = with pkgs; [ catch2_3 nanobench ];
 
-          ndsort = stdenv.mkDerivation {
+          mkNdsort = { enableShared }: stdenv.mkDerivation {
             name = "ndsort";
             src = ./.;
             cmakeFlags = [
-              "-DBUILD_SHARED_LIBS=YES"
+              "-DBUILD_SHARED_LIBS=${if enableShared then "YES" else "NO"}"
               "-DCMAKE_BUILD_TYPE=Release"
             ] ++ pkgs.lib.optionals isX86 [
               "-DCMAKE_CXX_FLAGS=-march=x86-64-v3"
@@ -47,6 +47,9 @@
             nativeBuildInputs = with pkgs; [ cmake ];
             inherit buildInputs;
           };
+
+          ndsort = mkNdsort { enableShared = true; };
+          ndsort-static = mkNdsort { enableShared = false; };
 
           ndsort-python = stdenv.mkDerivation {
             name = "ndsort-python";
@@ -64,6 +67,7 @@
         in
         {
           packages.default = ndsort;
+          packages.library-static = ndsort-static;
           packages.ndsort-python = ndsort-python;
 
           devShells.default = stdenv.mkDerivation {
