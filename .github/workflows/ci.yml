@@ -13,7 +13,7 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixos-unstable
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     env: { CXX: clang++-18 }
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Install vcpkg
       uses: friendlyanon/setup-vcpkg@v1
       with:
@@ -59,7 +59,7 @@ jobs:
         - { type: static, shared: NO }
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Install static analyzers
       if: matrix.os == 'ubuntu-24.04'
       run: |
