@@ -27,7 +27,8 @@ cmake.build-type = "Release"
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 build-frontend = "build"
-test-requires = ["numpy"]
+skip = "*-musllinux_*"
+test-requires = ["numpy", "delvewheel"]
 test-command = "python -c \"import numpy as np; import ndsort; assert ndsort.sort(np.array([[0.0, 0.0], [1.0, 1.0]]))\""
 
 [tool.cibuildwheel.linux]
@@ -35,7 +36,7 @@ archs = ["x86_64"]
 # Bootstrap vcpkg inside the container using the commit pinned in vcpkg.json.
 before-all = """
     set -eux
-    if command -v yum >/dev/null; then yum install -y zip; fi
+    yum install -y zip
     commit=$(python3 -c "import json; print(json.load(open('/project/vcpkg.json'))['builtin-baseline'])")
     git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg
     git -C /opt/vcpkg checkout "$commit"
@@ -48,4 +49,4 @@ archs = ["arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-environment = { CL = "/arch:AVX2" }
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
