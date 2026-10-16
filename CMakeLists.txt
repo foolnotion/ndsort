@@ -69,15 +69,14 @@ target_compile_features(ndsort_ndsort PUBLIC cxx_std_20)
 find_package(eve CONFIG REQUIRED)
 target_link_libraries(ndsort_ndsort PRIVATE eve::eve)
 
+# ---- Python bindings ----
+option(NDSORT_PYTHON "Build Python bindings via nanobind" OFF)
+
 # ---- Install rules ----
 
-if(NOT CMAKE_SKIP_INSTALL_RULES)
+if(NOT NDSORT_PYTHON AND NOT CMAKE_SKIP_INSTALL_RULES)
   include(cmake/install-rules.cmake)
 endif()
-
-# ---- Python bindings ----
-
-option(NDSORT_PYTHON "Build Python bindings via nanobind" OFF)
 
 if(NDSORT_PYTHON)
     set_target_properties(ndsort_ndsort PROPERTIES POSITION_INDEPENDENT_CODE ON)

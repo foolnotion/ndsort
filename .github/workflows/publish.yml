@@ -5,28 +5,44 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   VCPKG_COMMIT: "d7112d1a4fb50410d3639f5f586972591d848beb"
-
+  CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
 jobs:
   build-linux:
     name: Linux x86_64
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Verify release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          test "$tag_version" = "$package_version"
 
-      - uses: pypa/cibuildwheel@v2
+      - uses: pypa/cibuildwheel@v3.4.1
         # vcpkg is bootstrapped inside the manylinux container by pyproject.toml
         # before-all; no host-side setup needed.
 
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux
+          overwrite: true
           path: wheelhouse/*.whl
 
   build-macos:
-    name: macOS arm64
-    runs-on: macos-14
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      matrix:
+        include:
+          - { runner: macos-14, arch: arm64, flags: "" }
+          - { runner: macos-15, arch: x86_64, flags: "-march=x86-64-v3" }
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,17 +53,20 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/vcpkg/archives
-          key: vcpkg-macos-arm64-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-macos-${{ matrix.arch }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
 
-      - uses: pypa/cibuildwheel@v2
+      - uses: pypa/cibuildwheel@v3.4.1
         env:
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_ENVIRONMENT_MACOS: >
+            CXXFLAGS="${{ matrix.flags }}"
             CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
             VCPKG_BINARY_SOURCES="clear;files,$HOME/.cache/vcpkg/archives,readwrite"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos
+          name: wheels-macos-${{ matrix.arch }}
+          overwrite: true
           path: wheelhouse/*.whl
 
   build-windows:
@@ -60,31 +79,34 @@ jobs:
         uses: friendlyanon/setup-vcpkg@v1
         with: { committish: "${{ env.VCPKG_COMMIT }}" }
 
+      - name: Normalize vcpkg path
+        shell: bash
+        run: echo "VCPKG_ROOT_FORWARD=${VCPKG_ROOT//\\//}" >> "$GITHUB_ENV"
+
       - uses: actions/cache@v4
         with:
           path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
           key: vcpkg-windows-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
 
-      - uses: pypa/cibuildwheel@v2
+      - uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_ENVIRONMENT_WINDOWS: >
-            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
+            CL="/arch:AVX2"
+            CMAKE_GENERATOR="Visual Studio 17 2022"
+            CMAKE_GENERATOR_TOOLSET="ClangCL"
+            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT_FORWARD }}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DVCPKG_INSTALL_OPTIONS=--allow-unsupported"
             VCPKG_BINARY_SOURCES="clear;files,C:/Users/runneradmin/AppData/Local/vcpkg/archives,readwrite"
 
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-windows
+          overwrite: true
           path: wheelhouse/*.whl
 
-  publish:
-    name: Publish to PyPI
+  publish-testpypi:
+    name: Publish to TestPyPI
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-24.04
-    environment:
-      name: pypi
-      url: https://pypi.org/p/ndsort
-    permissions:
-      id-token: write  # OIDC trusted publishing — no API token required
 
     steps:
       - uses: actions/download-artifact@v4
@@ -94,3 +116,29 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publish to PyPI
+    needs: [publish-testpypi]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ndsort
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
