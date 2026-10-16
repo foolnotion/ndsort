@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  VCPKG_COMMIT: "d7112d1a4fb50410d3639f5f586972591d848beb"
+  VCPKG_COMMIT: "3cd21e48a75f67acfef289da52893ce79144aaa1"
   CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
 jobs:
   build-linux:
