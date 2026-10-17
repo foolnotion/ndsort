@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [tool.scikit-build]
-cmake.args = ["-DNDSORT_PYTHON=ON", "-DBUILD_TESTING=OFF"]
+cmake.args = ["-DNDSORT_PYTHON=ON", "-DBUILD_TESTING=OFF", "-DNDSORT_PYTHON_TESTS=OFF"]
 cmake.build-type = "Release"
 
 # ── cibuildwheel ──────────────────────────────────────────────────────────────
@@ -27,13 +27,16 @@ cmake.build-type = "Release"
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 build-frontend = "build"
+skip = "*-musllinux_*"
+test-requires = ["numpy"]
+test-command = "python \"{project}/python/tests/smoke_wheel.py\""
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
-manylinux-x86_64-image = "ghcr.io/pypa/manylinux_2_28_x86_64"
 # Bootstrap vcpkg inside the container using the commit pinned in vcpkg.json.
 before-all = """
     set -eux
+    yum install -y zip
     commit=$(python3 -c "import json; print(json.load(open('/project/vcpkg.json'))['builtin-baseline'])")
     git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg
     git -C /opt/vcpkg checkout "$commit"
@@ -43,11 +46,9 @@ environment = { CXXFLAGS = "-march=x86-64-v3", CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_F
 
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
-environment = { CXXFLAGS = "-mcpu=native" }
-# CMAKE_ARGS (vcpkg toolchain path) is injected by the workflow because the
-# path depends on where setup-vcpkg installs it on the runner.
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-environment = { CL = "/arch:AVX2" }
-# CMAKE_ARGS (vcpkg toolchain path) is injected by the workflow.
+# cibuildwheel 3.x does not install delvewheel itself (it only became the default in 4.0).
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"

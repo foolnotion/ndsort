@@ -5,92 +5,191 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
-env:
-  VCPKG_COMMIT: "d7112d1a4fb50410d3639f5f586972591d848beb"
+permissions:
+  contents: read
 
 jobs:
-  build-linux:
-    name: Linux x86_64
+  check-version:
+    name: Check release version
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pypa/cibuildwheel@v2
+      - name: Verify tag matches pyproject.toml and CMakeLists.txt
+        shell: bash
+        run: |
+          python3 - <<'EOF'
+          import os
+          import re
+          import sys
+          import tomllib
+
+          tag_version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+
+          with open("pyproject.toml", "rb") as f:
+              pyproject_version = tomllib.load(f)["project"]["version"]
+
+          with open("CMakeLists.txt", encoding="utf-8") as f:
+              match = re.search(r"\bproject\s*\([^)]*?\bVERSION\s+([0-9][0-9.]*)", f.read(), re.IGNORECASE | re.DOTALL)
+          if match is None:
+              sys.exit("could not find project(... VERSION ...) in CMakeLists.txt")
+          cmake_version = match.group(1)
+
+          print(f"tag={tag_version} pyproject.toml={pyproject_version} CMakeLists.txt={cmake_version}")
+          if not tag_version == pyproject_version == cmake_version:
+              sys.exit("version mismatch between tag, pyproject.toml and CMakeLists.txt")
+          EOF
+
+  build-linux:
+    name: Linux x86_64
+    needs: [check-version]
+    # check-version is skipped on workflow_dispatch; run unless it failed or the run was cancelled.
+    if: ${{ !cancelled() && (needs.check-version.result == 'success' || needs.check-version.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pypa/cibuildwheel@v3.4.1
         # vcpkg is bootstrapped inside the manylinux container by pyproject.toml
         # before-all; no host-side setup needed.
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-linux
+          overwrite: true
           path: wheelhouse/*.whl
 
   build-macos:
-    name: macOS arm64
-    runs-on: macos-14
+    name: macOS ${{ matrix.arch }}
+    needs: [check-version]
+    if: ${{ !cancelled() && (needs.check-version.result == 'success' || needs.check-version.result == 'skipped') }}
+    strategy:
+      matrix:
+        include:
+          - { runner: macos-14, arch: arm64, deployment_target: "11.0", flags: "" }
+          - { runner: macos-15-intel, arch: x86_64, deployment_target: "10.15", flags: "-march=x86-64-v3" }
+    runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - name: Read vcpkg baseline from vcpkg.json
+        shell: bash
+        run: |
+          commit="$(sed -n 's/.*"builtin-baseline"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' vcpkg.json)"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "bad vcpkg baseline: '${commit}'"; exit 1; }
+          echo "VCPKG_COMMIT=${commit}" >> "$GITHUB_ENV"
 
       - name: Install vcpkg
         uses: friendlyanon/setup-vcpkg@v1
-        with: { committish: "${{ env.VCPKG_COMMIT }}" }
+        with:
+          committish: "${{ env.VCPKG_COMMIT }}"
+          cache: false
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/vcpkg/archives
-          key: vcpkg-macos-arm64-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-macos-${{ matrix.arch }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
 
-      - uses: pypa/cibuildwheel@v2
+      - uses: pypa/cibuildwheel@v3.4.1
         env:
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           CIBW_ENVIRONMENT_MACOS: >
+            MACOSX_DEPLOYMENT_TARGET="${{ matrix.deployment_target }}"
+            CXXFLAGS="${{ matrix.flags }}"
             CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
             VCPKG_BINARY_SOURCES="clear;files,$HOME/.cache/vcpkg/archives,readwrite"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: wheels-macos
+          name: wheels-macos-${{ matrix.arch }}
+          overwrite: true
           path: wheelhouse/*.whl
 
   build-windows:
     name: Windows x86_64
+    needs: [check-version]
+    if: ${{ !cancelled() && (needs.check-version.result == 'success' || needs.check-version.result == 'skipped') }}
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - name: Read vcpkg baseline from vcpkg.json
+        shell: bash
+        run: |
+          commit="$(sed -n 's/.*"builtin-baseline"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' vcpkg.json)"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "bad vcpkg baseline: '${commit}'"; exit 1; }
+          echo "VCPKG_COMMIT=${commit}" >> "$GITHUB_ENV"
 
       - name: Install vcpkg
         uses: friendlyanon/setup-vcpkg@v1
-        with: { committish: "${{ env.VCPKG_COMMIT }}" }
+        with:
+          committish: "${{ env.VCPKG_COMMIT }}"
+          cache: false
 
-      - uses: actions/cache@v4
+      - name: Normalize vcpkg path
+        shell: bash
+        run: echo "VCPKG_ROOT_FORWARD=${VCPKG_ROOT//\\//}" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v6
         with:
           path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
           key: vcpkg-windows-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
 
-      - uses: pypa/cibuildwheel@v2
+      - uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_ENVIRONMENT_WINDOWS: >
-            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake"
+            CL="/arch:AVX2"
+            CMAKE_GENERATOR="Visual Studio 17 2022"
+            CMAKE_GENERATOR_TOOLSET="ClangCL"
+            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT_FORWARD }}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DVCPKG_INSTALL_OPTIONS=--allow-unsupported"
             VCPKG_BINARY_SOURCES="clear;files,C:/Users/runneradmin/AppData/Local/vcpkg/archives,readwrite"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-windows
+          overwrite: true
           path: wheelhouse/*.whl
 
-  publish:
-    name: Publish to PyPI
+  publish-testpypi:
+    name: Publish to TestPyPI
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-24.04
     environment:
-      name: pypi
-      url: https://pypi.org/p/ndsort
-    permissions:
-      id-token: write  # OIDC trusted publishing — no API token required
-
+      name: testpypi
+      url: https://test.pypi.org/p/ndsort
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: wheels-*
           merge-multiple: true
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+
+  publish:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [publish-testpypi]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ndsort
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

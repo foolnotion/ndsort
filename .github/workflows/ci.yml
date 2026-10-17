@@ -6,14 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  VCPKG_COMMIT: "d7112d1a4fb50410d3639f5f586972591d848beb"
-
 jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixos-unstable
@@ -30,10 +27,18 @@ jobs:
     runs-on: ubuntu-24.04
     env: { CXX: clang++-18 }
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
+    - name: Read vcpkg baseline from vcpkg.json
+      shell: bash
+      run: |
+        commit="$(sed -n 's/.*"builtin-baseline"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' vcpkg.json)"
+        [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "bad vcpkg baseline: '${commit}'"; exit 1; }
+        echo "VCPKG_COMMIT=${commit}" >> "$GITHUB_ENV"
     - name: Install vcpkg
       uses: friendlyanon/setup-vcpkg@v1
-      with: { committish: "${{ env.VCPKG_COMMIT }}" }
+      with:
+        committish: "${{ env.VCPKG_COMMIT }}"
+        cache: false
     - name: Configure
       run: cmake --preset=ci-sanitize
     - name: Build
@@ -57,7 +62,13 @@ jobs:
         - { type: static, shared: NO }
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
+    - name: Read vcpkg baseline from vcpkg.json
+      shell: bash
+      run: |
+        commit="$(sed -n 's/.*"builtin-baseline"[[:space:]]*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' vcpkg.json)"
+        [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "bad vcpkg baseline: '${commit}'"; exit 1; }
+        echo "VCPKG_COMMIT=${commit}" >> "$GITHUB_ENV"
     - name: Install static analyzers
       if: matrix.os == 'ubuntu-24.04'
       run: |
@@ -65,7 +76,9 @@ jobs:
         sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 180
     - name: Install vcpkg
       uses: friendlyanon/setup-vcpkg@v1
-      with: { committish: "${{ env.VCPKG_COMMIT }}" }
+      with:
+        committish: "${{ env.VCPKG_COMMIT }}"
+        cache: false
     - name: Setup MultiToolTask
       if: matrix.os == 'windows-2022'
       run: |
