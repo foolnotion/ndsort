@@ -28,8 +28,8 @@ cmake.build-type = "Release"
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 build-frontend = "build"
 skip = "*-musllinux_*"
-test-requires = ["numpy", "delvewheel"]
-test-command = "python -c \"import numpy as np; import ndsort; assert ndsort.sort(np.array([[0.0, 0.0], [1.0, 1.0]]))\""
+test-requires = ["numpy"]
+test-command = "python \"{project}/python/tests/smoke_wheel.py\""
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
@@ -42,11 +42,13 @@ before-all = """
     git -C /opt/vcpkg checkout "$commit"
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 """
-environment = { CXXFLAGS = "-march=x86-64-v3", CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake", VCPKG_BINARY_SOURCES = "clear;files,/root/.cache/vcpkg/archives,readwrite" }
+environment = { CXXFLAGS = "-march=x86-64-v3", CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake" }
 
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
+# cibuildwheel 3.x does not install delvewheel itself (it only became the default in 4.0).
+before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"

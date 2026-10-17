@@ -38,6 +38,13 @@ applied in service of this push-based rank propagation.
 The rankset intersection mechanism is the novel claim; see the
 [arXiv preprint](https://arxiv.org/abs/2203.13654) for details.
 
+### Complexity
+
+The current rank-intersect implementation's construction and rank-propagation costs are
+word-sensitive. See [the complexity analysis](docs/rank-intersect-complexity.md) for
+the derivation, assumptions, and preprocessing costs. In particular, no subquadratic
+average-case bound is claimed for the current implementation.
+
 ### rank_ordinal_sorter
 
 Applies the same push-based rank update idea without the O(N²) bitset storage.
@@ -77,11 +84,11 @@ All sorters share the same signature:
 auto operator()(population, double eps = 0.0, Proj proj = {}) -> ndsort::fronts;
 ```
 
-`eps` enables additive ε-dominance (`a < b` iff `b - a > eps` per objective).
-Implemented in the dominance comparison logic of: `deductive_sorter`, `hierarchical_sorter`,
-`efficient_binary_sorter`, `efficient_sequential_sorter`, `best_order_sorter`.
-`merge_sorter` and `rank_intersect_sorter` accept `eps` for API uniformity but have no effect —
-their dominance is implicit in the objective-wise sort order and cannot be patched per-comparison.
+`eps` is an additive tolerance used only while the default and `presorted` paths
+deduplicate adjacent lexicographically sorted solutions: two solutions are grouped when
+their difference is at most `eps` in every objective. All sorters then perform exact
+Pareto ranking on those representatives. `sorted_unique` skips this preprocessing, so
+its caller must supply lexicographically sorted, already epsilon-deduplicated input.
 
 `proj` is a projection applied to each element before extracting its fitness vector,
 useful when the population holds structs rather than raw vectors:
@@ -130,6 +137,8 @@ auto f = sorter(population);
 ## Python
 
 The library ships nanobind bindings that expose all nine sorters and `pareto_compare` to Python.
+
+Prebuilt wheels for x86-64 require a CPU with AVX2 (Intel Haswell / AMD Excavator, 2013 or newer).
 
 ### Building
 
@@ -190,12 +199,11 @@ sorting algorithms require regardless of input type.
 
 ## Input contract
 
-All sorters expect the input to be **free of exact duplicates**
-(solutions with identical objective vectors).
-Duplicate handling is left to the caller: in a typical MOEA this means deduplicating
-after each generation before ranking.
-Passing duplicates may place them in consecutive fronts rather than the same front —
-behaviour that varies by sorter and is not treated as a bug.
+Fitness vectors must contain the same positive number of **finite** `float` or `double`
+objectives. The public C++ API rejects empty objective vectors, inconsistent objective
+counts, and non-finite values with `std::invalid_argument`. `eps` must be finite and
+non-negative. Default and `presorted` calls deduplicate; `sorted_unique` requires the
+caller to supply already epsilon-deduplicated input.
 
 ## Building
 
