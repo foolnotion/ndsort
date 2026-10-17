@@ -84,7 +84,7 @@ NB_MODULE(_ext, m)
         .value("presorted", sort_hint::presorted,
                "Input is already in lexicographic fitness order; skip internal sort.")
         .value("sorted_unique", sort_hint::sorted_unique,
-               "Input is already sorted and contains no duplicates; skip sort and dedup.");
+               "Input is lexicographically sorted and epsilon-deduplicated; skip sort and dedup.");
 
     nb::enum_<ndsort::dominance>(m, "Dominance")
         .value("equal", ndsort::dominance::equal)

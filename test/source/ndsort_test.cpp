@@ -1,7 +1,11 @@
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <random>
 #include <ranges>
+#include <span>
+#include <stdexcept>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -176,6 +180,14 @@ TEST_CASE("all sorters agree - eps-dedup places near-duplicates in same front")
     {
         REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter {}, pop, eps) == ref);
     }
+    SECTION("dominance_degree_sorter")
+    {
+        REQUIRE(sorted_fronts(ndsort::dominance_degree_sorter {}, pop, eps) == ref);
+    }
+    SECTION("rank_ordinal_sorter")
+    {
+        REQUIRE(sorted_fronts(ndsort::rank_ordinal_sorter {}, pop, eps) == ref);
+    }
 }
 
 TEST_CASE("projection - sort structs with member fitness")
@@ -196,6 +208,17 @@ TEST_CASE("projection - sort structs with member fitness")
     REQUIRE(f[0].size() == 3);
     REQUIRE(f[1].size() == 1);
     REQUIRE(f[1][0] == 3);
+}
+
+TEST_CASE("projection - sort transformed fitness views")
+{
+    population_t pop { { 0.0, 0.0 }, { 1.0, 1.0 } };
+    auto projected = pop | std::views::transform([](std::vector<double> const& fitness) {
+        return std::span<double const> { fitness };
+    });
+
+    auto const f = ndsort::rank_intersect_sorter {}(projected);
+    REQUIRE(f == ndsort::fronts { { 0 }, { 1 } });
 }
 
 TEST_CASE("eps_adapter - burns in epsilon")
@@ -252,6 +275,88 @@ TEST_CASE("edge cases - empty, single individual, single objective")
         SECTION("efficient_binary_sorter") { REQUIRE(sorted_fronts(ndsort::efficient_binary_sorter {}, pop) == ref); }
         SECTION("efficient_sequential_sorter") { REQUIRE(sorted_fronts(ndsort::efficient_sequential_sorter {}, pop) == ref); }
     }
+}
+
+TEST_CASE("numeric input contract")
+{
+    ndsort::rank_intersect_sorter sorter;
+
+    SECTION("signed zero has numerical ordering")
+    {
+        population_t pop { { 0.0, 0.0 }, { 1.0, -0.0 } };
+        auto check = [&pop](auto const& algorithm) {
+            auto f = algorithm(pop);
+            REQUIRE(f.size() == 2);
+            REQUIRE(f[0] == std::vector<std::size_t> { 0 });
+            REQUIRE(f[1] == std::vector<std::size_t> { 1 });
+        };
+        check(ndsort::rank_intersect_sorter {});
+        check(ndsort::merge_sorter {});
+        check(ndsort::best_order_sorter {});
+    }
+
+    SECTION("rejects inconsistent objective counts")
+    {
+        population_t pop { { 1.0, 2.0 }, { 3.0 } };
+        REQUIRE_THROWS_AS(sorter(pop), std::invalid_argument);
+    }
+
+    SECTION("rejects empty objective vectors")
+    {
+        population_t pop { {} };
+        REQUIRE_THROWS_AS(sorter(pop), std::invalid_argument);
+    }
+
+    SECTION("rejects non-finite objectives")
+    {
+        population_t pop { { 0.0, std::numeric_limits<double>::infinity() } };
+        REQUIRE_THROWS_AS(sorter(pop), std::invalid_argument);
+    }
+
+    SECTION("rejects invalid epsilon")
+    {
+        population_t pop { { 0.0 } };
+        REQUIRE_THROWS_AS(sorter(pop, -0.1), std::invalid_argument);
+        REQUIRE_THROWS_AS(sorter(pop, std::numeric_limits<double>::infinity()), std::invalid_argument);
+    }
+}
+
+TEST_CASE("mutable-only projections satisfy the population contract")
+{
+    struct individual {
+        population_t::value_type fitness;
+    };
+    std::vector<individual> pop { { { 0.0, 0.0 } }, { { 1.0, 1.0 } } };
+    auto projection = [](individual& ind) -> population_t::value_type& { return ind.fitness; };
+
+    auto f = ndsort::deductive_sorter {}(pop, 0.0, projection);
+    REQUIRE(f.size() == 2);
+}
+
+TEST_CASE("only float and double fitness vectors are supported")
+{
+    using float_population = std::vector<std::vector<float>>;
+    using double_population = std::vector<std::vector<double>>;
+    using integer_population = std::vector<std::vector<int>>;
+    using long_double_population = std::vector<std::vector<long double>>;
+
+    static_assert(ndsort::population<float_population>);
+    static_assert(ndsort::population<double_population>);
+    static_assert(!ndsort::population<integer_population>);
+    static_assert(!ndsort::population<long_double_population>);
+
+    float_population pop { { 0.0F, 0.0F }, { 1.0F, 1.0F } };
+    auto f = ndsort::deductive_sorter {}(pop);
+    REQUIRE(f.size() == 2);
+}
+
+TEST_CASE("epsilon dedup preserves float precision")
+{
+    using float_population = std::vector<std::vector<float>>;
+    float_population pop { { 1.0F }, { 2.0F } };
+
+    auto const f = ndsort::deductive_sorter {}(pop, std::nextafter(1.0, 0.0));
+    REQUIRE(f == ndsort::fronts { { 0 }, { 1 } });
 }
 
 TEST_CASE("fronts partition - every individual appears exactly once")
@@ -423,40 +528,34 @@ TEST_CASE("sorted_unique overload produces same result as default overload")
     }
 }
 
-TEST_CASE("sorted_unique + eps - near-duplicates treated as distinct")
+TEST_CASE("sorted_unique skips epsilon dedup")
 {
-    // With sorted_unique the dedup pass is skipped, so eps-close solutions
-    // that are NOT exact duplicates remain as separate individuals and
-    // are compared normally by the dominance logic.
     population_t pop { { 0.0, 0.0 }, { 0.005, 0.005 }, { 1.0, 1.0 } };
     std::ranges::sort(pop);
 
-    auto su_fronts = [](auto const& sorter, population_t const& p, double eps) {
-        auto f = sorter(p, eps, std::identity {}, ndsort::sorted_unique);
+    auto exact_fronts = [&pop](auto const& sorter) {
+        auto f = sorter(pop, 0.01, std::identity {}, ndsort::sorted_unique);
         for (auto& front : f) {
             std::ranges::sort(front);
         }
         return f;
     };
 
-    // With eps=0 (default dominance), {0.005,0.005} is dominated by {0,0}.
-    // So we get 3 fronts.
-    auto f0 = su_fronts(ndsort::deductive_sorter {}, pop, 0.0);
-    REQUIRE(f0.size() == 3);
+    auto const ref = exact_fronts(ndsort::deductive_sorter {});
+    REQUIRE(ref.size() == 3);
 
-    // With eps=0.01, {0,0} and {0.005,0.005} are eps-close on both objectives.
-    // Without dedup they remain separate individuals; the sorter sees them as
-    // non-dominated (neither eps-dominates the other). Both dominate {1,1}.
-    // Result: front 0 = {idx0, idx1}, front 1 = {idx2}.
-    auto f1 = su_fronts(ndsort::deductive_sorter {}, pop, 0.01);
-    REQUIRE(f1.size() == 2);
-    REQUIRE(f1[0].size() == 2);
-    REQUIRE(f1[1].size() == 1);
+    REQUIRE(exact_fronts(ndsort::rank_intersect_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::merge_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::hierarchical_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::best_order_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::dominance_degree_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::rank_ordinal_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::efficient_binary_sorter {}) == ref);
+    REQUIRE(exact_fronts(ndsort::efficient_sequential_sorter {}) == ref);
 }
 
-TEST_CASE("best_order_sort - eps on 3 objectives")
+TEST_CASE("best_order_sort agrees after epsilon dedup")
 {
-    // Two solutions that are eps-close on all 3 objectives should end up in the same front.
     population_t pop {
         { 0.0, 0.0, 0.0 },
         { 0.005, 0.005, 0.005 },
@@ -469,4 +568,13 @@ TEST_CASE("best_order_sort - eps on 3 objectives")
     REQUIRE(ref[0].size() == 2);
 
     REQUIRE(sorted_fronts(ndsort::best_order_sorter {}, pop, eps) == ref);
+}
+
+TEST_CASE("epsilon dedup uses adjacent lexicographic representatives")
+{
+    population_t pop { { 0.0, 0.0 }, { 0.0, 10.0 }, { 0.001, 0.001 } };
+    auto const fronts = sorted_fronts(ndsort::deductive_sorter {}, pop, 0.01);
+    REQUIRE(fronts.size() == 2);
+    REQUIRE(fronts[0] == std::vector<std::size_t> { 0 });
+    REQUIRE(fronts[1] == std::vector<std::size_t> { 1, 2 });
 }

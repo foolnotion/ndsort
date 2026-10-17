@@ -10,7 +10,7 @@ A generic C++20 library of non-dominated sorting algorithms for multi-objective 
 | Sorter | Algorithm | Complexity (best / worst) | Reference |
 |:---|:---|:---|:---|
 | `deductive_sorter` | Deductive sort | O(MN²) expected / Θ(MN³) | [Mishra & Buzdalov, GECCO 2020](https://doi.org/10.1145/3377930.3390246) |
-| `rank_intersect_sorter` | Rank-intersect NDS | O(MN log N) avg / O(MN²) | [Burlacu, arXiv 2022](https://arxiv.org/abs/2203.13654) |
+| `rank_intersect_sorter` | Rank-intersect NDS | O(MN²) worst; average not established | [Burlacu, arXiv 2022](https://arxiv.org/abs/2203.13654) |
 | `merge_sorter` | Merge NDS (MNDS) | O(N log N) best / O(MN²) | [Moreno et al., IEEE TCYB 2020](https://doi.org/10.1109/TCYB.2020.2968301) |
 | `hierarchical_sorter` | Hierarchical NDS (HNDS) | O(MN√N) best / O(MN²) | [Bao et al., J. Comput. Sci. 2017](https://doi.org/10.1016/j.jocs.2017.09.015) |
 | `best_order_sorter` | Best Order Sort (BOS) | O(MN log N) best / O(MN²) | [Roy et al., GECCO 2016](https://doi.org/10.1145/2908961.2931684) |
@@ -77,11 +77,11 @@ All sorters share the same signature:
 auto operator()(population, double eps = 0.0, Proj proj = {}) -> ndsort::fronts;
 ```
 
-`eps` enables additive ε-dominance (`a < b` iff `b - a > eps` per objective).
-Implemented in the dominance comparison logic of: `deductive_sorter`, `hierarchical_sorter`,
-`efficient_binary_sorter`, `efficient_sequential_sorter`, `best_order_sorter`.
-`merge_sorter` and `rank_intersect_sorter` accept `eps` for API uniformity but have no effect —
-their dominance is implicit in the objective-wise sort order and cannot be patched per-comparison.
+`eps` is an additive tolerance used while the default and `presorted` paths
+deduplicate adjacent lexicographically sorted solutions: two solutions are grouped when
+their difference is at most `eps` in every objective. All sorters then perform exact
+Pareto ranking on those representatives. `sorted_unique` skips this preprocessing, so
+its caller must supply lexicographically sorted, already epsilon-deduplicated input.
 
 `proj` is a projection applied to each element before extracting its fitness vector,
 useful when the population holds structs rather than raw vectors:
@@ -111,16 +111,16 @@ All sorters accept an optional tag as the last argument to skip preprocessing:
 |:---|:---|:---|
 | *(default)* | Unsorted, may have duplicates | Nothing |
 | `ndsort::presorted` | Lexicographically sorted, may have duplicates | Internal lex-sort |
-| `ndsort::sorted_unique` | Lexicographically sorted, no duplicates | Internal lex-sort + eps-dedup |
+| `ndsort::sorted_unique` | Lexicographically sorted, epsilon-deduplicated | Internal lex-sort + eps-dedup |
 
 The `sorted_unique` tag is the fastest path — it flattens the population and runs the
 sorting algorithm directly with no index reconstruction. Use it when the caller has
-already sorted and deduplicated (e.g., NSGA2's `stable_partition` removes duplicates
-before ranking).
+already sorted and epsilon-deduplicated (e.g., NSGA2's `stable_partition` removes
+duplicates before ranking).
 
 ### eps_adapter
 
-Burns in a fixed ε so call sites don't need to pass it explicitly:
+Burns in a fixed ε for adjacent lexicographic deduplication so call sites don't need to pass it explicitly:
 
 ```cpp
 auto sorter = ndsort::eps_adapter{ndsort::rank_intersect_sorter{}, 1e-6};
@@ -192,12 +192,11 @@ sorting algorithms require regardless of input type.
 
 ## Input contract
 
-All sorters expect the input to be **free of exact duplicates**
-(solutions with identical objective vectors).
-Duplicate handling is left to the caller: in a typical MOEA this means deduplicating
-after each generation before ranking.
-Passing duplicates may place them in consecutive fronts rather than the same front —
-behaviour that varies by sorter and is not treated as a bug.
+Fitness vectors must contain the same positive number of **finite** `float` or `double`
+objectives. The public C++ API rejects empty objective vectors, inconsistent objective
+counts, and non-finite values with `std::invalid_argument`. `eps` must be finite and
+non-negative. Default and `presorted` calls deduplicate; `sorted_unique` requires the
+caller to supply already epsilon-deduplicated input.
 
 ## Building
 

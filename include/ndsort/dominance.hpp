@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <iterator>
 #include <ranges>
+#include <stdexcept>
 
 namespace ndsort {
 
@@ -33,8 +34,11 @@ struct equal_to {
 struct pareto_compare {
     template <std::forward_iterator I1, std::forward_iterator I2>
     [[nodiscard]] auto operator()(I1 first1, I1 last1, I2 first2, I2 last2,
-        double eps = 0.0) const noexcept -> dominance
+        double eps = 0.0) const -> dominance
     {
+        if (!(eps >= 0.0) || !std::isfinite(eps)) {
+            throw std::invalid_argument("eps must be finite and non-negative");
+        }
         using val_t = std::common_type_t<typename std::iterator_traits<I1>::value_type,
             typename std::iterator_traits<I2>::value_type,
             double>;
@@ -50,7 +54,7 @@ struct pareto_compare {
     }
 
     template <std::ranges::forward_range R1, std::ranges::forward_range R2>
-    [[nodiscard]] auto operator()(R1&& r1, R2&& r2, double eps = 0.0) const noexcept -> dominance
+    [[nodiscard]] auto operator()(R1&& r1, R2&& r2, double eps = 0.0) const -> dominance
     {
         return (*this)(std::ranges::begin(r1), std::ranges::end(r1),
             std::ranges::begin(r2), std::ranges::end(r2), eps);

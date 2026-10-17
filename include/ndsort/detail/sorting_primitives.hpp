@@ -14,6 +14,9 @@ auto float_to_sortable(T f) -> std::conditional_t<sizeof(T) == 4, uint32_t, uint
     using U = std::conditional_t<sizeof(T) == 4, uint32_t, uint64_t>;
     U bits {};
     std::memcpy(&bits, &f, sizeof(T));
+    if ((bits << 1U) == 0) {
+        bits = 0;
+    }
     U const mask = static_cast<U>(-static_cast<U>(bits >> (sizeof(U) * 8 - 1))) | (U { 1 } << (sizeof(U) * 8 - 1));
     return bits ^ mask;
 }

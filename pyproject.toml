@@ -21,6 +21,7 @@ classifiers = [
 [tool.scikit-build]
 cmake.args = ["-DNDSORT_PYTHON=ON", "-DBUILD_TESTING=OFF", "-DNDSORT_PYTHON_TESTS=OFF"]
 cmake.build-type = "Release"
+build-dir = "build/{wheel_tag}"
 
 # ── cibuildwheel ──────────────────────────────────────────────────────────────
 

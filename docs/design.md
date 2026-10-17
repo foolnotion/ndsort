@@ -19,7 +19,7 @@ and enables independent versioning, testing, and benchmarking.
 
 1. **Zero coupling** — no dependency on Operon types; works with any range of fitness vectors.
 2. **Zero overhead** — sorters are value types; no virtual dispatch on the hot path.
-3. **Composable** — behavior (epsilon-dominance, parallelism, projection) is added through
+3. **Composable** — behavior (epsilon preprocessing, parallelism, projection) is added through
    adapters, not inheritance.
 4. **Concept-constrained** — all interfaces are expressed in C++20 concepts; errors are
    caught at the call site, not inside a template instantiation chain.
@@ -77,7 +77,7 @@ struct some_adapter {
 };
 ```
 
-ndsort provides adapters for epsilon-dominance and parallel objective passes (see below).
+ndsort provides adapters for epsilon preprocessing and parallel objective passes (see below).
 
 ---
 
@@ -286,10 +286,10 @@ Adapters are class templates that take a sorter type and return a new sorter typ
 They follow the same callable interface as raw sorters so they satisfy
 `nondominated_sorter` and can themselves be adapted.
 
-### `eps_adapter<S>` — epsilon-dominance
+### `eps_adapter<S>` — epsilon preprocessing deduplication
 
-Burns in a fixed epsilon so call sites don't need to pass it explicitly.
-Useful when constructing sorters in algorithm configuration structs.
+Burns in a fixed epsilon for adjacent lexicographic deduplication so call sites don't need
+to pass it explicitly. Useful when constructing sorters in algorithm configuration structs.
 
 ```cpp
 template<nondominated_sorter S>

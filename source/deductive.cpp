@@ -13,7 +13,7 @@ namespace ndsort {
 namespace {
 
     template <int M, typename T>
-    auto sort_impl_m(detail::flat_fitness<T> const& ff, double eps) -> fronts
+    auto sort_impl_m(detail::flat_fitness<T> const& ff) -> fronts
     {
         auto const n = ff.n;
         auto const m = M > 0 ? static_cast<std::size_t>(M) : ff.m;
@@ -40,8 +40,8 @@ namespace {
             for (std::size_t k = 0; k < m; ++k) {
                 auto const va = ff.at(k, a);
                 auto const vb = ff.at(k, b);
-                lhs |= static_cast<uint8_t>(va < vb && (vb - va) > static_cast<T>(eps));
-                rhs |= static_cast<uint8_t>(vb < va && (va - vb) > static_cast<T>(eps));
+                lhs |= static_cast<uint8_t>(va < vb);
+                rhs |= static_cast<uint8_t>(vb < va);
             }
             return static_cast<dominance>(lhs | static_cast<uint8_t>(rhs << 1U));
         };
@@ -83,19 +83,19 @@ namespace {
     }
 
     template <typename T>
-    auto sort_impl_dispatch(detail::flat_fitness<T> const& ff, double eps) -> fronts
+    auto sort_impl_dispatch(detail::flat_fitness<T> const& ff) -> fronts
     {
         return detail::dispatch_on_m(ff, [&](auto mc) {
-            return sort_impl_m<mc.value>(ff, eps);
+            return sort_impl_m<mc.value>(ff);
         });
     }
 
 } // namespace
 
 template <typename T>
-auto deductive_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) const -> fronts
+auto deductive_sorter::sort_impl(detail::flat_fitness<T> const& ff, double /*eps*/) const -> fronts
 {
-    return sort_impl_dispatch(ff, eps);
+    return sort_impl_dispatch(ff);
 }
 
 template NDSORT_EXPORT auto deductive_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;

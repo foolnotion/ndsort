@@ -10,9 +10,10 @@
 
 namespace ndsort {
 
-// Burns in a fixed epsilon tolerance so call sites don't need to pass it explicitly.
-// The wrapped sorter is stored by value; if it is stateless the adapter is empty.
-// The stored epsilon is always used; any eps argument passed by the caller is ignored.
+// Burns in a fixed epsilon tolerance for preprocessing deduplication, so call sites
+// don't need to pass it explicitly. The wrapped sorter is stored by value; if it is
+// stateless the adapter is empty. The stored epsilon is always used; any eps argument
+// passed by the caller is ignored.
 template <typename S>
 struct eps_adapter {
     S sorter_ {};

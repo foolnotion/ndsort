@@ -14,10 +14,10 @@ namespace {
         sequential };
 
     template <typename T>
-    auto weakly_dominates(detail::flat_fitness<T> const& ff, std::size_t j, std::size_t i, double eps) -> bool
+    auto weakly_dominates(detail::flat_fitness<T> const& ff, std::size_t j, std::size_t i) -> bool
     {
         for (std::size_t k = 0; k < ff.m; ++k) {
-            if (ff.at(k, j) > ff.at(k, i) + static_cast<T>(eps)) {
+            if (ff.at(k, j) > ff.at(k, i)) {
                 return false;
             }
         }
@@ -25,13 +25,13 @@ namespace {
     }
 
     template <ens_strategy Strategy, typename T>
-    auto ens_sort_impl(detail::flat_fitness<T> const& ff, double eps) -> fronts
+    auto ens_sort_impl(detail::flat_fitness<T> const& ff) -> fronts
     {
         auto const n = ff.n;
 
         auto dominated_by_front = [&](std::vector<std::size_t> const& f, std::size_t i) -> bool {
             return std::ranges::any_of(std::views::reverse(f), [&](std::size_t j) {
-                return weakly_dominates(ff, j, i, eps);
+                return weakly_dominates(ff, j, i);
             });
         };
 
@@ -57,15 +57,15 @@ namespace {
 } // namespace
 
 template <typename T>
-auto efficient_binary_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) const -> fronts
+auto efficient_binary_sorter::sort_impl(detail::flat_fitness<T> const& ff, double /*eps*/) const -> fronts
 {
-    return ens_sort_impl<ens_strategy::binary>(ff, eps);
+    return ens_sort_impl<ens_strategy::binary>(ff);
 }
 
 template <typename T>
-auto efficient_sequential_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) const -> fronts
+auto efficient_sequential_sorter::sort_impl(detail::flat_fitness<T> const& ff, double /*eps*/) const -> fronts
 {
-    return ens_sort_impl<ens_strategy::sequential>(ff, eps);
+    return ens_sort_impl<ens_strategy::sequential>(ff);
 }
 
 template NDSORT_EXPORT auto efficient_binary_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;
