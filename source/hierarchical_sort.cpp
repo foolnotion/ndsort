@@ -12,14 +12,14 @@ namespace ndsort {
 namespace {
 
     template <int M, typename T>
-    auto sort_impl_m(detail::flat_fitness<T> const& ff, double eps) -> fronts
+    auto sort_impl_m(detail::flat_fitness<T> const& ff) -> fronts
     {
         auto const n = ff.n;
         auto const m = M > 0 ? static_cast<std::size_t>(M) : ff.m;
 
         auto dominates = [&](std::size_t a, std::size_t b) -> bool {
             for (std::size_t k = 0; k < m; ++k) {
-                if (ff.at(k, a) > ff.at(k, b) + static_cast<T>(eps)) {
+                if (ff.at(k, a) > ff.at(k, b)) {
                     return false;
                 }
             }
@@ -59,19 +59,19 @@ namespace {
     }
 
     template <typename T>
-    auto sort_impl_dispatch(detail::flat_fitness<T> const& ff, double eps) -> fronts
+    auto sort_impl_dispatch(detail::flat_fitness<T> const& ff) -> fronts
     {
         return detail::dispatch_on_m(ff, [&](auto mc) {
-            return sort_impl_m<mc.value>(ff, eps);
+            return sort_impl_m<mc.value>(ff);
         });
     }
 
 } // namespace
 
 template <typename T>
-auto hierarchical_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) const -> fronts
+auto hierarchical_sorter::sort_impl(detail::flat_fitness<T> const& ff, double /*eps*/) const -> fronts
 {
-    return sort_impl_dispatch(ff, eps);
+    return sort_impl_dispatch(ff);
 }
 
 template NDSORT_EXPORT auto hierarchical_sorter::sort_impl<float>(detail::flat_fitness<float> const&, double) const -> fronts;

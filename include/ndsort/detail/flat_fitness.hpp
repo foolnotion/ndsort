@@ -2,13 +2,12 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <functional>
 #include <numeric>
 #include <ranges>
-#include <type_traits>
+#include <stdexcept>
 #include <vector>
 
 #include "ndsort/concepts.hpp"
@@ -33,9 +32,9 @@ template <typename P, typename Proj = std::identity>
     requires population<P, Proj>
 auto flatten(P&& pop, Proj proj = {})
 {
-    using element_t = std::ranges::range_value_t<P>;
-    using fitness_t = std::ranges::range_value_t<std::invoke_result_t<Proj, element_t>>;
-    using T = std::conditional_t<std::is_floating_point_v<fitness_t>, fitness_t, double>;
+    using element_t = std::ranges::range_reference_t<P>;
+    using fitness_t = std::ranges::range_value_t<std::invoke_result_t<Proj&, element_t>>;
+    using T = std::remove_cv_t<fitness_t>;
 
     auto const n = std::ranges::size(pop);
     if (n == 0) {
@@ -45,6 +44,10 @@ auto flatten(P&& pop, Proj proj = {})
     auto&& first_individual = *pop_it;
     auto&& first = std::invoke(proj, first_individual);
     auto const m = std::ranges::size(first);
+    if (m == 0) {
+        throw std::invalid_argument("fitness vectors must contain at least one objective");
+    }
+
 
     flat_fitness<T> ff;
     ff.n = n;
@@ -54,10 +57,16 @@ auto flatten(P&& pop, Proj proj = {})
     for (std::size_t i = 0; i < n; ++i, ++pop_it) {
         auto&& individual = *pop_it;
         auto&& fitness = std::invoke(proj, individual);
-        assert(std::ranges::size(fitness) == m && "all individuals must have the same number of objectives");
+        if (std::ranges::size(fitness) != m) {
+            throw std::invalid_argument("all fitness vectors must have the same number of objectives");
+        }
         auto fit_it = std::ranges::begin(fitness);
         for (std::size_t j = 0; j < m; ++j, ++fit_it) {
-            ff.data[j * n + i] = static_cast<T>(*fit_it);
+            auto const value = static_cast<T>(*fit_it);
+            if (!std::isfinite(value)) {
+                throw std::invalid_argument("fitness objectives must be finite");
+            }
+            ff.data[j * n + i] = value;
         }
     }
     return ff;
@@ -122,8 +131,8 @@ auto eps_dedup(flat_fitness<T> ff, double eps) -> dedup_result<T>
     for (std::size_t i = 0; i < n; ++i) {
         bool is_dup = !unique_idx.empty();
         for (std::size_t k = 0; k < m && is_dup; ++k) {
-            auto const diff = ff.at(k, i) - ff.at(k, unique_idx.back());
-            is_dup = (diff < 0 ? -diff : diff) <= static_cast<T>(eps);
+            auto const diff = static_cast<double>(ff.at(k, i)) - static_cast<double>(ff.at(k, unique_idx.back()));
+            is_dup = std::abs(diff) <= eps;
         }
         canonical[i] = is_dup ? unique_idx.size() - 1 : unique_idx.size();
         if (!is_dup) {
@@ -173,10 +182,18 @@ auto dispatch_on_m(flat_fitness<T> const& ff, F&& fn)
     }
 }
 
+inline void validate_eps(double eps)
+{
+    if (!(eps >= 0.0) || !std::isfinite(eps)) {
+        throw std::invalid_argument("eps must be finite and non-negative");
+    }
+}
+
 template <typename SortFn, typename P, typename Proj>
     requires population<P, Proj>
 auto sort_with_dedup(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
 {
+    validate_eps(eps);
     if (std::ranges::size(pop) == 0) {
         return {};
     }
@@ -203,6 +220,7 @@ template <typename SortFn, typename P, typename Proj>
     requires population<P, Proj>
 auto sort_sorted_unique(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
 {
+    validate_eps(eps);
     if (std::ranges::size(pop) == 0) {
         return {};
     }
@@ -214,6 +232,7 @@ template <typename SortFn, typename P, typename Proj>
     requires population<P, Proj>
 auto sort_presorted_with_dedup(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
 {
+    validate_eps(eps);
     if (std::ranges::size(pop) == 0) {
         return {};
     }

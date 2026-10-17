@@ -182,20 +182,15 @@ def test_hint_sorted_unique_gives_same_result(method):
     assert hinted == ref, method
 
 
-def test_hint_sorted_unique_skips_dedup():
-    """sorted_unique skips eps-dedup: near-duplicates are treated as distinct individuals."""
-    # With default sort + eps=0.01: {0,0} and {0.005,0.005} are eps-merged → 2 fronts.
-    # With sorted_unique  + eps=0.01: dedup is skipped; neither eps-dominates the other
-    #   (|0.005 - 0| = 0.005 < eps on both objectives) but they ARE separate individuals,
-    #   so they both dominate {1,1}.  Result: 2 fronts, front 0 has both.
+def test_hint_sorted_unique_skips_epsilon_dedup():
+    """sorted_unique ranks distinct inputs exactly, regardless of epsilon."""
     pop = np.array([[0.0, 0.0], [0.005, 0.005], [1.0, 1.0]])
 
     f_su = normalize_fronts(
         ndsort.sort(pop, method="deductive", eps=0.01,
                     hint=ndsort.SortHint.sorted_unique)
     )
-    assert len(f_su) == 2
-    assert len(f_su[0]) == 2
+    assert f_su == [[0], [1], [2]]
 
 
 # ── pareto_compare ────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@
 namespace ndsort {
 
 template <typename T>
-auto best_order_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps) const -> fronts
+auto best_order_sorter::sort_impl(detail::flat_fitness<T> const& ff, double /*eps*/) const -> fronts
 {
     auto const n = static_cast<int>(ff.n);
     auto const m = static_cast<int>(ff.m);
@@ -71,7 +71,7 @@ auto best_order_sorter::sort_impl(detail::flat_fitness<T> const& ff, double eps)
     auto dominated_by = [&](int s, int t) -> bool {
         return std::ranges::none_of(comparison_sets[t], [&](int k) {
             auto const ks = static_cast<std::size_t>(k);
-            return ff.at(ks, static_cast<std::size_t>(s)) < ff.at(ks, static_cast<std::size_t>(t)) - static_cast<T>(eps);
+            return ff.at(ks, static_cast<std::size_t>(s)) < ff.at(ks, static_cast<std::size_t>(t));
         });
     };
 

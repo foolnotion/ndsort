@@ -41,13 +41,14 @@ def sort(population, *, method="rank_intersect", eps=0.0, hint=SortHint.none):
         "deductive", "hierarchical", "best_order", "dominance_degree",
         "rank_ordinal", "efficient_binary", "efficient_sequential".
     eps:
-        Epsilon tolerance for dominance comparisons.
+        Additive tolerance used by the default and ``SortHint.presorted`` paths
+        to group solutions within ``eps`` in every objective before exact ranking.
     hint:
         ``SortHint.none``          – sort and deduplicate internally (default).
         ``SortHint.presorted``     – skip lex-sort; caller guarantees the input
                                      is already in lexicographic fitness order.
-        ``SortHint.sorted_unique`` – skip sort *and* dedup; caller guarantees
-                                     sorted order with no duplicate fitnesses.
+        ``SortHint.sorted_unique`` – skip sort *and* epsilon dedup; caller guarantees
+                                     sorted order with no epsilon-close fitnesses.
 
     Returns
     -------
