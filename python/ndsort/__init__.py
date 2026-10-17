@@ -42,13 +42,16 @@ def sort(population, *, method="rank_intersect", eps=0.0, hint=SortHint.none):
         "rank_ordinal", "efficient_binary", "efficient_sequential".
     eps:
         Additive tolerance used by the default and ``SortHint.presorted`` paths
-        to group solutions within ``eps`` in every objective before exact ranking.
+        to group adjacent lexicographically sorted solutions when their objective
+        differences are at most ``eps`` before exact ranking. The lexicographically
+        first solution in each group represents the group.
     hint:
         ``SortHint.none``          – sort and deduplicate internally (default).
         ``SortHint.presorted``     – skip lex-sort; caller guarantees the input
                                      is already in lexicographic fitness order.
         ``SortHint.sorted_unique`` – skip sort *and* epsilon dedup; caller guarantees
-                                     sorted order with no epsilon-close fitnesses.
+                                     lexicographic order with no epsilon-close adjacent
+                                     fitnesses.
 
     Returns
     -------

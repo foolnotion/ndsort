@@ -323,7 +323,9 @@ TEST_CASE("numeric input contract")
 
 TEST_CASE("mutable-only projections satisfy the population contract")
 {
-    struct individual { population_t::value_type fitness; };
+    struct individual {
+        population_t::value_type fitness;
+    };
     std::vector<individual> pop { { { 0.0, 0.0 } }, { { 1.0, 1.0 } } };
     auto projection = [](individual& ind) -> population_t::value_type& { return ind.fitness; };
 
@@ -566,4 +568,13 @@ TEST_CASE("best_order_sort agrees after epsilon dedup")
     REQUIRE(ref[0].size() == 2);
 
     REQUIRE(sorted_fronts(ndsort::best_order_sorter {}, pop, eps) == ref);
+}
+
+TEST_CASE("epsilon dedup uses adjacent lexicographic representatives")
+{
+    population_t pop { { 0.0, 0.0 }, { 0.0, 10.0 }, { 0.001, 0.001 } };
+    auto const fronts = sorted_fronts(ndsort::deductive_sorter {}, pop, 0.01);
+    REQUIRE(fronts.size() == 2);
+    REQUIRE(fronts[0] == std::vector<std::size_t> { 0 });
+    REQUIRE(fronts[1] == std::vector<std::size_t> { 1, 2 });
 }

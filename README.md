@@ -111,16 +111,16 @@ All sorters accept an optional tag as the last argument to skip preprocessing:
 |:---|:---|:---|
 | *(default)* | Unsorted, may have duplicates | Nothing |
 | `ndsort::presorted` | Lexicographically sorted, may have duplicates | Internal lex-sort |
-| `ndsort::sorted_unique` | Lexicographically sorted, no duplicates | Internal lex-sort + eps-dedup |
+| `ndsort::sorted_unique` | Lexicographically sorted, epsilon-deduplicated | Internal lex-sort + eps-dedup |
 
 The `sorted_unique` tag is the fastest path — it flattens the population and runs the
 sorting algorithm directly with no index reconstruction. Use it when the caller has
-already sorted and deduplicated (e.g., NSGA2's `stable_partition` removes duplicates
-before ranking).
+already sorted and epsilon-deduplicated (e.g., NSGA2's `stable_partition` removes
+duplicates before ranking).
 
 ### eps_adapter
 
-Burns in a fixed ε so call sites don't need to pass it explicitly:
+Burns in a fixed ε for adjacent lexicographic deduplication so call sites don't need to pass it explicitly:
 
 ```cpp
 auto sorter = ndsort::eps_adapter{ndsort::rank_intersect_sorter{}, 1e-6};

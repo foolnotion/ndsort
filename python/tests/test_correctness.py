@@ -168,6 +168,34 @@ def test_hint_presorted_with_duplicates(method):
     assert len(fronts[1]) == 1, method
 
 
+def test_presorted_hint_with_epsilon_matches_default():
+    pop = np.array([[0.0, 0.0], [0.005, 0.005], [1.0, 1.0]])
+    pop_sorted = pop[np.lexsort(pop[:, ::-1].T)]
+    expected = normalize_fronts(ndsort.sort(pop_sorted, method="deductive", eps=0.01))
+    actual = normalize_fronts(ndsort.sort(
+        pop_sorted, method="deductive", eps=0.01,
+        hint=ndsort.SortHint.presorted,
+    ))
+    assert actual == expected
+
+
+@pytest.mark.parametrize("population", [
+    np.array([[0.0, np.nan]]),
+    np.array([[0.0, np.inf]]),
+    [[]],
+    [[0.0], [0.0, 1.0]],
+])
+def test_invalid_population_raises_value_error(population):
+    with pytest.raises(ValueError):
+        ndsort.sort(population)
+
+
+@pytest.mark.parametrize("eps", [-1.0, np.nan, np.inf])
+def test_invalid_epsilon_raises_value_error(eps):
+    with pytest.raises(ValueError):
+        ndsort.sort(np.array([[0.0, 0.0]]), eps=eps)
+
+
 # ── Hint: sorted_unique ───────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("method", ALL_METHODS)

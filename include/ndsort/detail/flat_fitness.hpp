@@ -48,7 +48,6 @@ auto flatten(P&& pop, Proj proj = {})
         throw std::invalid_argument("fitness vectors must contain at least one objective");
     }
 
-
     flat_fitness<T> ff;
     ff.n = n;
     ff.m = m;
@@ -56,7 +55,7 @@ auto flatten(P&& pop, Proj proj = {})
 
     for (std::size_t i = 0; i < n; ++i, ++pop_it) {
         auto&& individual = *pop_it;
-        auto&& fitness = std::invoke(proj, individual);
+        auto&& fitness = i == 0 ? first : std::invoke(proj, individual);
         if (std::ranges::size(fitness) != m) {
             throw std::invalid_argument("all fitness vectors must have the same number of objectives");
         }
@@ -214,8 +213,9 @@ auto sort_with_dedup(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort
     return expanded;
 }
 
-// Fastest path: caller guarantees input is lexicographically sorted with no duplicates.
+// Fastest path: caller guarantees input is lexicographically sorted and epsilon-deduplicated.
 // Skips lex_perm, eps_dedup, and index reconstruction — directly returns sort_fn output.
+// The eps argument is validated for API consistency but is otherwise ignored.
 template <typename SortFn, typename P, typename Proj>
     requires population<P, Proj>
 auto sort_sorted_unique(SortFn&& sort_fn, P&& pop, double eps, Proj proj) -> ndsort::fronts
