@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <random>
 #include <ranges>
+#include <span>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -196,6 +197,17 @@ TEST_CASE("projection - sort structs with member fitness")
     REQUIRE(f[0].size() == 3);
     REQUIRE(f[1].size() == 1);
     REQUIRE(f[1][0] == 3);
+}
+
+TEST_CASE("projection - sort transformed fitness views")
+{
+    population_t pop { { 0.0, 0.0 }, { 1.0, 1.0 } };
+    auto projected = pop | std::views::transform([](std::vector<double> const& fitness) {
+        return std::span<double const> { fitness };
+    });
+
+    auto const f = ndsort::rank_intersect_sorter {}(projected);
+    REQUIRE(f == ndsort::fronts { { 0 }, { 1 } });
 }
 
 TEST_CASE("eps_adapter - burns in epsilon")

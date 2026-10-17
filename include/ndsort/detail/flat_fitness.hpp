@@ -41,7 +41,9 @@ auto flatten(P&& pop, Proj proj = {})
     if (n == 0) {
         return flat_fitness<T> {};
     }
-    auto const& first = std::invoke(proj, *std::ranges::begin(pop));
+    auto pop_it = std::ranges::begin(pop);
+    auto&& first_individual = *pop_it;
+    auto&& first = std::invoke(proj, first_individual);
     auto const m = std::ranges::size(first);
 
     flat_fitness<T> ff;
@@ -49,9 +51,9 @@ auto flatten(P&& pop, Proj proj = {})
     ff.m = m;
     ff.data.resize(n * m);
 
-    auto pop_it = std::ranges::begin(pop);
     for (std::size_t i = 0; i < n; ++i, ++pop_it) {
-        auto const& fitness = std::invoke(proj, *pop_it);
+        auto&& individual = *pop_it;
+        auto&& fitness = std::invoke(proj, individual);
         assert(std::ranges::size(fitness) == m && "all individuals must have the same number of objectives");
         auto fit_it = std::ranges::begin(fitness);
         for (std::size_t j = 0; j < m; ++j, ++fit_it) {
